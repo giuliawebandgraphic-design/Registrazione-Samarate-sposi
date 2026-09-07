@@ -1,0 +1,6 @@
+{
+  "name": "Samarate Sposi - Pass & Registrazione",
+  "description": "Registrazione ufficiale per le coppie di sposi alla fiera Samarate Sposi con generazione del Pass QR Code d'ingresso.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
