@@ -154,18 +154,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
         <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-[#16391C]/5 pointer-events-none blur-xl"></div>
 
         <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
-          <SamarateLogo size="lg" className="mb-3" />
-          
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#A89236]/15 text-[#16391C] border border-[#A89236]/30 mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
+          <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-[#16391C] font-bold tracking-tight">
             Registrazione Ufficiale Futuri Sposi & Pass Ingresso Gratuito
-          </div>
-
-          <h1 className="font-serif text-2xl sm:text-3xl text-[#16391C] font-bold tracking-tight mt-1">
-            Il Tuo Matrimonio Inizia Qui
           </h1>
           
-          <p className="text-sm text-[#16391C]/75 mt-2 leading-relaxed">
+          <p className="text-sm sm:text-base text-[#16391C]/80 mt-3 leading-relaxed">
             Compila i dati della coppia per scaricare istantaneamente il tuo <strong>Pass d'Ingresso con QR Code</strong>. 
             Presentalo all'accoglienza per accedere agli atelier, location e degustazioni della fiera.
           </p>

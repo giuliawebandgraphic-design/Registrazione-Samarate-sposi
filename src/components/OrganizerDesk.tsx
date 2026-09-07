@@ -362,7 +362,10 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
           <button
             onClick={() => {
-              const url = `${window.location.origin}${window.location.pathname}?mode=register`;
+              const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+              const isVercelOrCustom = currentOrigin.includes('vercel.app') || (!currentOrigin.includes('run.app') && !currentOrigin.includes('localhost'));
+              const origin = isVercelOrCustom ? currentOrigin : 'https://samaratesposi.vercel.app';
+              const url = `${origin}/?mode=register`;
               navigator.clipboard.writeText(url);
               setCopiedLink(true);
               setTimeout(() => setCopiedLink(false), 2500);

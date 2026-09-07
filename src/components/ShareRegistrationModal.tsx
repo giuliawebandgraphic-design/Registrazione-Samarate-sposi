@@ -38,10 +38,12 @@ export const ShareRegistrationModal: React.FC<ShareRegistrationModalProps> = ({
   if (!isOpen) return null;
 
   // Build the clean public standalone registration URL
-  const origin = window.location.origin;
-  const pathname = window.location.pathname;
-  // Use current host + pathname with ?mode=register to load in pure standalone guest mode
-  const publicRegisterUrl = `${origin}${pathname}?mode=register`;
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const isVercelOrCustom = currentOrigin.includes('vercel.app') || (!currentOrigin.includes('run.app') && !currentOrigin.includes('localhost'));
+  const origin = isVercelOrCustom ? currentOrigin : 'https://samaratesposi.vercel.app';
+  
+  // Clean public registration URL
+  const publicRegisterUrl = `${origin}/?mode=register`;
   const embedCode = `<iframe src="${publicRegisterUrl}" width="100%" height="850" frameborder="0" style="border:none; border-radius:16px; overflow:hidden;"></iframe>`;
 
   const handleCopyLink = () => {

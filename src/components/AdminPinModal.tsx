@@ -59,7 +59,7 @@ export const AdminPinModal: React.FC<AdminPinModalProps> = ({
                 type="password"
                 maxLength={8}
                 autoFocus
-                placeholder="Inserisci PIN (es. 1011)"
+                placeholder="Inserisci PIN"
                 value={pinInput}
                 onChange={e => {
                   setPinInput(e.target.value);
@@ -74,9 +74,6 @@ export const AdminPinModal: React.FC<AdminPinModalProps> = ({
                 <span>{error}</span>
               </div>
             )}
-            <p className="text-[11px] text-center text-[#99A99C] mt-2">
-              PIN predefinito di prova: <strong className="text-[#16391C]">1011</strong> (le date della fiera)
-            </p>
           </div>
 
           <div className="flex gap-2 pt-2">
