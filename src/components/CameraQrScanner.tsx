@@ -99,7 +99,10 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
 
       const scanner = new Html5Qrcode(containerId, {
         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        verbose: false
+        verbose: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
       });
       scannerRef.current = scanner;
 
@@ -134,16 +137,16 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
         }
       }
 
+      // Full sensor scanning without strict qrbox cropping so any QR in the frame is detected instantly
       await scanner.start(
         cameraConfig,
         {
           fps: 15,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const edgeSize = Math.max(200, Math.floor(minEdge * 0.72));
-            return { width: edgeSize, height: edgeSize };
-          },
-          aspectRatio: 1.0,
+          videoConstraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
         },
         (decodedText) => {
           handleDecoded(decodedText);
@@ -370,6 +373,23 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
               id={containerId} 
               className="w-full h-full overflow-hidden [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
             />
+
+            {/* Transient Code Detected Notification */}
+            {lastScannedCode && (
+              <div className="absolute top-3 inset-x-3 flex items-center justify-between p-2.5 rounded-xl bg-black/85 backdrop-blur-md border border-emerald-500/60 text-xs text-white z-30 shadow-xl animate-fade-in">
+                <div className="flex items-center gap-2 truncate">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="truncate">Rilevato: <strong className="font-mono text-emerald-300 font-bold">{lastScannedCode}</strong></span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLastScannedCode(null)}
+                  className="px-2 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-[10px] text-white shrink-0 ml-2 font-semibold transition-colors cursor-pointer"
+                >
+                  Riprova
+                </button>
+              </div>
+            )}
 
             {/* Target Reticle Overlay & Animation (Visible when scanning) */}
             {isScanning && !errorMsg && (

@@ -36,6 +36,7 @@ import {
 import { exportAttendeesToCSV, generateTicketId, formatItalianDate } from '../utils/qrUtils';
 import { playFeedbackSound } from '../utils/audioFeedback';
 import { copyToClipboard } from '../utils/clipboard';
+import { QRCodeSVG } from 'qrcode.react';
 import { ShareRegistrationModal } from './ShareRegistrationModal';
 import { CameraQrScanner } from './CameraQrScanner';
 
@@ -79,6 +80,8 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   const [addModalError, setAddModalError] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [selectedQrModalAttendee, setSelectedQrModalAttendee] = useState<Attendee | null>(null);
+  const [copiedModalId, setCopiedModalId] = useState(false);
   const [hasCustomLogo, setHasCustomLogo] = useState<boolean>(() => {
     try {
       return !!localStorage.getItem('samarate_sposi_custom_logo');
@@ -123,44 +126,132 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
     const cleanCode = code.trim();
     if (!cleanCode) return;
 
-    let targetId = cleanCode;
-    try {
-      if (cleanCode.startsWith('http://') || cleanCode.startsWith('https://')) {
-        const parsedUrl = new URL(cleanCode);
-        const passParam = parsedUrl.searchParams.get('id') || parsedUrl.searchParams.get('pass') || parsedUrl.searchParams.get('code');
-        if (passParam) {
-          targetId = passParam;
-        } else {
-          const parts = parsedUrl.pathname.split('/').filter(Boolean);
-          if (parts.length > 0) {
-            targetId = parts[parts.length - 1];
+    // Check if it's the preview code from the registration form
+    if (cleanCode.toUpperCase().includes('PREVIEW')) {
+      playFeedbackSound('warning');
+      setScanResult({
+        type: 'warning',
+        message: 'Rilevato Pass Anteprima: Questo è il QR Code di anteprima della schermata di registrazione. Per convalidare un ingresso effettivo, usa il Pass definitivo generato dopo l\'invio del modulo o seleziona una coppia registrata dalla lista.'
+      });
+      return;
+    }
+
+    const rawLower = cleanCode.toLowerCase();
+
+    // 1. Direct ID match (case-insensitive)
+    let matched = attendees.find(a => a.id.toLowerCase() === rawLower);
+
+    // 2. Direct Email match
+    if (!matched) {
+      matched = attendees.find(a => a.email.toLowerCase() === rawLower);
+    }
+
+    // 3. JSON payload parsing (as in qrPayload or structured tickets)
+    if (!matched) {
+      let extractedId = '';
+      let extractedEmail = '';
+      try {
+        if ((cleanCode.startsWith('{') && cleanCode.endsWith('}')) || cleanCode.includes('"id"') || cleanCode.includes('"ticketId"')) {
+          const jsonStart = cleanCode.indexOf('{');
+          const jsonEnd = cleanCode.lastIndexOf('}');
+          if (jsonStart !== -1 && jsonEnd > jsonStart) {
+            const jsonStr = cleanCode.substring(jsonStart, jsonEnd + 1);
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.id) extractedId = String(parsed.id);
+            else if (parsed.ticketId) extractedId = String(parsed.ticketId);
+            else if (parsed.code) extractedId = String(parsed.code);
+            if (parsed.email) extractedEmail = String(parsed.email);
           }
         }
-      } else if (cleanCode.startsWith('{') && cleanCode.endsWith('}')) {
-        const parsed = JSON.parse(cleanCode);
-        if (parsed.id) targetId = parsed.id;
+      } catch {
+        // safe
       }
-    } catch {
-      // not a URL or JSON
+      if (extractedId) {
+        matched = attendees.find(a => a.id.toLowerCase() === extractedId.toLowerCase());
+      }
+      if (!matched && extractedEmail) {
+        matched = attendees.find(a => a.email.toLowerCase() === extractedEmail.toLowerCase());
+      }
     }
 
-    // Look for standard ticket format SS-XX-XXXXX anywhere in string
-    const idRegexMatch = targetId.match(/\bSS-\d{2}-[A-Za-z0-9]+\b/i);
-    if (idRegexMatch) {
-      targetId = idRegexMatch[0];
+    // 4. URL query params or path (e.g. ?id=SS-25-K8X92, ?pass=..., or #SS-25-K8X92)
+    if (!matched && (cleanCode.includes('http://') || cleanCode.includes('https://') || cleanCode.includes('?'))) {
+      try {
+        const urlStr = cleanCode.startsWith('http') ? cleanCode : `https://dummy.com/${cleanCode}`;
+        const parsedUrl = new URL(urlStr);
+        const passParam = parsedUrl.searchParams.get('id') || parsedUrl.searchParams.get('pass') || parsedUrl.searchParams.get('code') || parsedUrl.searchParams.get('ticket');
+        if (passParam) {
+          matched = attendees.find(a => a.id.toLowerCase() === passParam.toLowerCase());
+        }
+        if (!matched && parsedUrl.hash) {
+          const hashId = parsedUrl.hash.replace('#', '').trim();
+          if (hashId) {
+            matched = attendees.find(a => a.id.toLowerCase() === hashId.toLowerCase());
+          }
+        }
+      } catch {
+        // safe
+      }
     }
 
-    const cleanTarget = targetId.trim().toLowerCase();
-    const matched = attendees.find(a => 
-      a.id.trim().toLowerCase() === cleanTarget ||
-      a.email.trim().toLowerCase() === cleanTarget
-    );
+    // 5. Look for standard ticket regex SS-XX-XXXXX anywhere in string
+    if (!matched) {
+      const idRegexMatch = cleanCode.match(/SS-\d{2}-[A-Za-z0-9]{4,6}/i);
+      if (idRegexMatch) {
+        const candidate = idRegexMatch[0].toUpperCase();
+        matched = attendees.find(a => a.id.toUpperCase() === candidate);
+      }
+    }
+
+    // 6. Normalized alphanumeric comparison (e.g. "SS25K8X92" or "SS 25 K8X92" matching "SS-25-K8X92")
+    if (!matched) {
+      const cleanAlphanumeric = cleanCode.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+      if (cleanAlphanumeric.length >= 4) {
+        matched = attendees.find(a => {
+          const aClean = a.id.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+          return aClean === cleanAlphanumeric;
+        });
+        // Suffix match (e.g. "K8X92" matching "SS-25-K8X92")
+        if (!matched && cleanAlphanumeric.length === 5) {
+          matched = attendees.find(a => {
+            const aClean = a.id.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+            return aClean.endsWith(cleanAlphanumeric);
+          });
+        }
+      }
+    }
+
+    // 7. Check qrPayload exact or substring match
+    if (!matched) {
+      matched = attendees.find(a => a.qrPayload && (a.qrPayload === cleanCode || a.qrPayload.includes(cleanCode) || cleanCode.includes(a.qrPayload)));
+    }
+
+    // 8. Match by couple names or last name (at least 3 chars)
+    if (!matched && cleanCode.length >= 3) {
+      matched = attendees.find(a => {
+        const fullName = `${a.coupleNames} ${a.lastName}`.toLowerCase();
+        const targetLow = cleanCode.toLowerCase();
+        return fullName === targetLow || a.lastName.toLowerCase() === targetLow || fullName.includes(targetLow);
+      });
+    }
+
+    // 9. Match phone number digits
+    if (!matched) {
+      const phoneDigits = cleanCode.replace(/\D/g, '');
+      if (phoneDigits.length >= 6) {
+        matched = attendees.find(a => {
+          if (!a.phone) return false;
+          const aDigits = a.phone.replace(/\D/g, '');
+          return aDigits.includes(phoneDigits) || phoneDigits.includes(aDigits);
+        });
+      }
+    }
 
     if (!matched) {
       playFeedbackSound('error');
       setScanResult({
         type: 'error',
-        message: `Nessun pass trovato con codice o email: "${targetId}". Verifica che la registrazione sia stata completata.`
+        message: `Nessun pass trovato corrispondente a "${cleanCode}". Verifica che il codice appartenga a una coppia iscritta nella lista.`
       });
       return;
     }
@@ -591,8 +682,50 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
         {/* Live Smartphone Camera QR Scanner */}
         <CameraQrScanner onScanSuccess={handleProcessScan} />
 
+        {/* Quick Test & Verification from Registry List */}
+        <div className="p-4 rounded-2xl bg-[#F7F4EC]/90 border border-[#CAC8AA] space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#16391C] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
+              Test Rapido Riconoscimento Codici (dalla lista iscritti):
+            </span>
+            <span className="text-[10px] font-semibold text-[#16391C]/60 uppercase tracking-wider">
+              1-click simulator
+            </span>
+          </div>
+          <p className="text-[11px] text-[#16391C]/75">
+            Tocca una delle coppie presenti nel Registro per testare subito la scansione, il feedback audio e la convalida:
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {attendees.slice(0, 6).map(att => (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => handleProcessScan(att.id)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shadow-2xs cursor-pointer ${
+                  att.checkedIn 
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' 
+                    : 'bg-white text-[#16391C] border-[#CAC8AA] hover:bg-[#F7F4EC] hover:border-[#16391C]'
+                }`}
+                title={`Testa scansione pass di ${att.coupleNames} ${att.lastName}`}
+              >
+                <QrCode className="w-3.5 h-3.5 text-[#A89236]" />
+                <span>{att.coupleNames} {att.lastName}</span>
+                <code className="text-[10px] font-mono bg-black/5 px-1.5 py-0.5 rounded text-[#16391C] font-bold">
+                  {att.id}
+                </code>
+                {att.checkedIn ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-600 ml-0.5" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-amber-500 ml-0.5" title="In attesa" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Manual ID / Gun Barcode Scanner Input */}
-        <div className="pt-4 border-t border-[#CAC8AA]/40">
+        <div className="pt-2">
           <p className="text-xs font-semibold text-[#16391C] mb-2 flex items-center gap-1.5">
             <span>Oppure ricerca rapida / inserimento manuale codice:</span>
           </p>
@@ -604,7 +737,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
               <input
                 id="input-scan-code"
                 type="text"
-                placeholder="Digita codice ID Pass (es. SS-25-K8X92) o email invitato..."
+                placeholder="Digita codice ID Pass (es. SS-25-K8X92, K8X92, email o cognome)..."
                 value={scanInput}
                 onChange={e => setScanInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-[#F7F4EC]/60 rounded-xl text-sm text-[#16391C] border border-[#CAC8AA] focus:border-[#16391C] focus:ring-3 focus:ring-[#A89236]/20 focus:outline-none"
@@ -757,8 +890,19 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                             <div className="font-bold text-slate-900 text-sm">
                               {attendee.coupleNames} {attendee.lastName}
                             </div>
-                            <div className="font-mono text-[11px] text-[#A89236] font-semibold">
-                              {attendee.id}
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono text-[11px] text-[#A89236] font-semibold">
+                                {attendee.id}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedQrModalAttendee(attendee)}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-sans font-bold bg-[#A89236]/10 text-[#16391C] hover:bg-[#A89236]/20 transition-colors cursor-pointer"
+                                title="Mostra QR Code per scansione"
+                              >
+                                <QrCode className="w-2.5 h-2.5 text-[#A89236]" />
+                                QR
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -828,8 +972,15 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                       <td className="py-4 px-4 sm:px-6 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => setSelectedQrModalAttendee(attendee)}
+                            className="p-1.5 rounded-lg text-[#A89236] hover:text-[#16391C] hover:bg-[#F7F4EC] transition-colors cursor-pointer"
+                            title="Visualizza QR Code Pass"
+                          >
+                            <QrCode className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => onViewBadge(attendee)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-[#16391C] hover:bg-[#F7F4EC] transition-colors"
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-[#16391C] hover:bg-[#F7F4EC] transition-colors cursor-pointer"
                             title="Visualizza e Stampa Pass"
                           >
                             <ExternalLink className="w-4 h-4" />
@@ -985,6 +1136,109 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Individual Couple QR Code Inspection & Test Modal */}
+      {selectedQrModalAttendee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full border border-[#CAC8AA] shadow-2xl relative text-center">
+            <button
+              onClick={() => setSelectedQrModalAttendee(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Chiudi"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-[#16391C] text-[#C4AF56] flex items-center justify-center mx-auto mb-3 shadow-xs">
+              <QrCode className="w-6 h-6" />
+            </div>
+
+            <span className="text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full bg-[#A89236]/15 text-[#16391C] border border-[#A89236]/30">
+              Pass Ingresso Ufficiale
+            </span>
+
+            <h3 className="font-serif text-xl font-bold text-[#16391C] mt-2">
+              {selectedQrModalAttendee.coupleNames} {selectedQrModalAttendee.lastName}
+            </h3>
+
+            <p className="text-xs text-[#16391C]/70 mt-1">
+              Data Nozze: <strong>{formatItalianDate(selectedQrModalAttendee.weddingDate)}</strong> • Ospiti: <strong>{selectedQrModalAttendee.guestCount || 2}</strong>
+            </p>
+
+            {/* High-contrast QR Code Box for Screen Scanning */}
+            <div className="my-5 p-4 bg-white rounded-2xl inline-block border-2 border-[#CAC8AA]/80 shadow-md">
+              <QRCodeSVG
+                value={selectedQrModalAttendee.id}
+                size={190}
+                level="H"
+                includeMargin={true}
+                fgColor="#16391C"
+                bgColor="#FFFFFF"
+              />
+            </div>
+
+            {/* Ticket ID with Copy button */}
+            <div className="flex items-center justify-center gap-2 mb-5">
+              <code className="text-sm font-mono font-bold bg-[#F7F4EC] px-3 py-1.5 rounded-xl border border-[#CAC8AA] text-[#16391C]">
+                {selectedQrModalAttendee.id}
+              </code>
+              <button
+                type="button"
+                onClick={async () => {
+                  await copyToClipboard(selectedQrModalAttendee.id);
+                  setCopiedModalId(true);
+                  setTimeout(() => setCopiedModalId(false), 2000);
+                }}
+                className="p-2 rounded-xl border border-[#CAC8AA] hover:bg-[#F7F4EC] text-[#16391C] transition-colors cursor-pointer"
+                title="Copia codice ID"
+              >
+                {copiedModalId ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-[#A89236]" />}
+              </button>
+            </div>
+
+            {/* Direct Actions */}
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleProcessScan(selectedQrModalAttendee.id);
+                  setSelectedQrModalAttendee(null);
+                }}
+                className={`w-full py-3 px-4 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer ${
+                  selectedQrModalAttendee.checkedIn
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+                    : 'bg-[#16391C] hover:bg-[#1f4a25] text-white'
+                }`}
+              >
+                {selectedQrModalAttendee.checkedIn ? (
+                  <>
+                    <RotateCcw className="w-4 h-4 text-amber-700" />
+                    Riconvalida / Verifica Check-in
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-[#C4AF56]" />
+                    Valida Ingresso Subito
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const att = selectedQrModalAttendee;
+                  setSelectedQrModalAttendee(null);
+                  onViewBadge(att);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-white hover:bg-[#F7F4EC] text-[#16391C] border border-[#CAC8AA] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-[#A89236]" />
+                Apri Badge Pass Completo
+              </button>
+            </div>
           </div>
         </div>
       )}
