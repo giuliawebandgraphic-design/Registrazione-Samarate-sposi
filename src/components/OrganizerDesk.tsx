@@ -24,7 +24,8 @@ import {
   Image as ImageIcon,
   Link2,
   Share2,
-  Copy
+  Copy,
+  RotateCcw
 } from 'lucide-react';
 import { 
   Attendee, 
@@ -34,7 +35,9 @@ import {
 } from '../types';
 import { exportAttendeesToCSV, generateTicketId, formatItalianDate } from '../utils/qrUtils';
 import { playFeedbackSound } from '../utils/audioFeedback';
+import { copyToClipboard } from '../utils/clipboard';
 import { ShareRegistrationModal } from './ShareRegistrationModal';
+import { CameraQrScanner } from './CameraQrScanner';
 
 interface OrganizerDeskProps {
   attendees: Attendee[];
@@ -76,6 +79,13 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   const [addModalError, setAddModalError] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [hasCustomLogo, setHasCustomLogo] = useState<boolean>(() => {
+    try {
+      return !!localStorage.getItem('samarate_sposi_custom_logo');
+    } catch {
+      return false;
+    }
+  });
 
   // Stats calculation
   const totalCount = attendees.length;
@@ -115,17 +125,35 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
 
     let targetId = cleanCode;
     try {
-      if (cleanCode.startsWith('{') && cleanCode.endsWith('}')) {
+      if (cleanCode.startsWith('http://') || cleanCode.startsWith('https://')) {
+        const parsedUrl = new URL(cleanCode);
+        const passParam = parsedUrl.searchParams.get('id') || parsedUrl.searchParams.get('pass') || parsedUrl.searchParams.get('code');
+        if (passParam) {
+          targetId = passParam;
+        } else {
+          const parts = parsedUrl.pathname.split('/').filter(Boolean);
+          if (parts.length > 0) {
+            targetId = parts[parts.length - 1];
+          }
+        }
+      } else if (cleanCode.startsWith('{') && cleanCode.endsWith('}')) {
         const parsed = JSON.parse(cleanCode);
         if (parsed.id) targetId = parsed.id;
       }
     } catch {
-      // not JSON
+      // not a URL or JSON
     }
 
+    // Look for standard ticket format SS-XX-XXXXX anywhere in string
+    const idRegexMatch = targetId.match(/\bSS-\d{2}-[A-Za-z0-9]+\b/i);
+    if (idRegexMatch) {
+      targetId = idRegexMatch[0];
+    }
+
+    const cleanTarget = targetId.trim().toLowerCase();
     const matched = attendees.find(a => 
-      a.id.toLowerCase() === targetId.toLowerCase() ||
-      a.email.toLowerCase() === targetId.toLowerCase()
+      a.id.trim().toLowerCase() === cleanTarget ||
+      a.email.trim().toLowerCase() === cleanTarget
     );
 
     if (!matched) {
@@ -256,6 +284,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
         try {
           localStorage.setItem('samarate_sposi_custom_logo', base64);
           window.dispatchEvent(new Event('samarate_logo_updated'));
+          setHasCustomLogo(true);
           playFeedbackSound('success');
         } catch {
           // safe
@@ -269,6 +298,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
     try {
       localStorage.removeItem('samarate_sposi_custom_logo');
       window.dispatchEvent(new Event('samarate_logo_updated'));
+      setHasCustomLogo(false);
       playFeedbackSound('success');
     } catch {
       // safe
@@ -278,63 +308,95 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   return (
     <div className="space-y-8">
       {/* Top Welcome & Event Status Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#CAC8AA] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#A89236]/15 text-[#16391C] border border-[#A89236]/30 mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
-            Desk Accoglienza & Reception • Samarate Sposi
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#CAC8AA] shadow-xs relative overflow-hidden">
+        {/* Soft luxury golden radial accent */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#A89236]/10 via-[#F7F4EC]/40 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          {/* Left Column: Title, Badge & Subtitle */}
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#A89236]/15 text-[#16391C] border border-[#A89236]/30 mb-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+              <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
+              <span>Desk Accoglienza & Reception • Samarate Sposi</span>
+            </div>
+            
+            <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-[#16391C] tracking-tight leading-tight">
+              Gestione Ingressi & Registro Coppie
+            </h1>
+            
+            <p className="text-sm text-[#16391C]/75 mt-2 leading-relaxed max-w-xl">
+              Effettua la scansione dei Pass QR Code ai tornelli, convalida gli accessi o registra sul posto le nuove coppie in arrivo.
+            </p>
           </div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#16391C]">
-            Gestione Ingressi & Registro Coppie
-          </h1>
-          <p className="text-sm text-[#16391C]/75 mt-1 max-w-2xl">
-            Effettua la scansione dei Pass QR Code ai tornelli o cerca nominalmente le coppie per convalidare l'accesso alla fiera.
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <label 
-            htmlFor="logo-file-input"
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#F7F4EC] hover:bg-[#eae6d8] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] transition-all cursor-pointer shadow-2xs"
-            title="Carica un'immagine personalizzata per il logo"
-          >
-            <ImageIcon className="w-4 h-4 text-[#A89236]" />
-            Carica Logo Ufficiale
-            <input
-              id="logo-file-input"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleLogoFileUpload}
-            />
-          </label>
+          {/* Right Column: Unified & Elegant Action Bar */}
+          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            {/* Primary Action Button */}
+            <button
+              id="btn-quick-add-attendee"
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-[#16391C] hover:bg-[#1e4825] text-white text-sm font-bold shadow-sm hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-[#C4AF56]" />
+              <span>Iscrizione Rapida all'Ingresso</span>
+            </button>
 
-          <button
-            id="btn-open-share-modal"
-            onClick={() => setShowShareModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#A89236] hover:bg-[#917d2a] text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
-          >
-            <Share2 className="w-4 h-4 text-white" />
-            Link Esterno & QR Code
-          </button>
+            {/* Secondary Toolbar Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                id="btn-open-share-modal"
+                onClick={() => setShowShareModal(true)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs hover:border-[#A89236]/70 transition-all cursor-pointer"
+                title="Condividi modulo esterno e scarica QR Code per locandine"
+              >
+                <Share2 className="w-4 h-4 text-[#A89236]" />
+                <span>Link Esterno & QR</span>
+              </button>
 
-          <button
-            id="btn-quick-add-attendee"
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4 text-[#A89236]" />
-            Iscrizione Rapida all'Ingresso
-          </button>
+              <button
+                id="btn-export-csv"
+                onClick={() => exportAttendeesToCSV(attendees)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs hover:border-[#A89236]/70 transition-all cursor-pointer"
+                title="Esporta elenco completo coppie in formato CSV per Excel"
+              >
+                <Download className="w-4 h-4 text-[#A89236]" />
+                <span>Esporta CSV</span>
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-[#16391C]/10 text-[#16391C]">
+                  {attendees.length}
+                </span>
+              </button>
 
-          <button
-            id="btn-export-csv"
-            onClick={() => exportAttendeesToCSV(attendees)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs transition-all cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-[#A89236]" />
-            Esporta CSV Completo
-          </button>
+              <div className="flex items-center">
+                <label 
+                  htmlFor="logo-file-input"
+                  className="flex items-center gap-2 px-3.5 py-3 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs hover:border-[#A89236]/70 transition-all cursor-pointer"
+                  title={hasCustomLogo ? "Cambia logo fiera personalizzato" : "Carica logo ufficiale personalizzato"}
+                >
+                  <ImageIcon className="w-4 h-4 text-[#A89236]" />
+                  <span>Logo</span>
+                  <input
+                    id="logo-file-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleLogoFileUpload}
+                  />
+                </label>
+
+                {hasCustomLogo && (
+                  <button
+                    type="button"
+                    onClick={handleResetLogo}
+                    title="Ripristina logo predefinito Samarate Sposi"
+                    className="ml-1 p-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-[#CAC8AA] shadow-2xs transition-all cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -361,12 +423,12 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
 
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
           <button
-            onClick={() => {
+            onClick={async () => {
               const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
               const isVercelOrCustom = currentOrigin.includes('vercel.app') || (!currentOrigin.includes('run.app') && !currentOrigin.includes('localhost'));
               const origin = isVercelOrCustom ? currentOrigin : 'https://samaratesposi.vercel.app';
               const url = `${origin}/?mode=register`;
-              navigator.clipboard.writeText(url);
+              await copyToClipboard(url);
               setCopiedLink(true);
               setTimeout(() => setCopiedLink(false), 2500);
             }}
@@ -454,7 +516,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
       </div>
 
       {/* QR Scanner & Gate Simulator Box */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#CAC8AA] shadow-sm">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#CAC8AA] shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[#CAC8AA]/40">
           <div>
             <div className="flex items-center gap-2">
@@ -466,7 +528,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
               </h2>
             </div>
             <p className="text-xs text-[#16391C]/75 mt-1">
-              Scansiona il QR Code del visitatore (con lettore ottico o smartphone) oppure incolla il codice ID biglietto (es. <code>SS-25-K8X92</code>).
+              Punta la fotocamera dello smartphone verso il Pass QR per convalidare l'accesso in tempo reale.
             </p>
           </div>
 
@@ -478,64 +540,87 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
           </div>
         </div>
 
-        <form onSubmit={handleScanSubmit} className="mt-5 flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#99A99C]">
-              <QrCode className="w-4 h-4" />
-            </div>
-            <input
-              id="input-scan-code"
-              type="text"
-              placeholder="Incolla codice Pass o scansiona QR code (es. SS-25-...)"
-              value={scanInput}
-              onChange={e => setScanInput(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-[#F7F4EC]/60 rounded-xl text-sm text-[#16391C] border border-[#CAC8AA] focus:border-[#16391C] focus:ring-3 focus:ring-[#A89236]/20 focus:outline-none"
-            />
-          </div>
-
-          <button
-            id="btn-submit-scan"
-            type="submit"
-            className="px-6 py-3 bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0"
-          >
-            <CheckCircle2 className="w-4 h-4 text-[#C4AF56]" />
-            Valida Accesso
-          </button>
-        </form>
-
-        {/* Scan Result Alert */}
+        {/* Real-time Scan Result Banner */}
         {scanResult && (
-          <div className={`mt-4 p-4 rounded-2xl border transition-all ${
-            scanResult.type === 'success' ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950' :
-            scanResult.type === 'warning' ? 'bg-amber-50/90 border-amber-300 text-amber-950' :
-            'bg-rose-50/90 border-rose-300 text-rose-950'
+          <div className={`p-5 rounded-2xl border transition-all shadow-xs ${
+            scanResult.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 ring-2 ring-emerald-400/20' :
+            scanResult.type === 'warning' ? 'bg-amber-50 border-amber-300 text-amber-950 ring-2 ring-amber-400/20' :
+            'bg-rose-50 border-rose-300 text-rose-950 ring-2 ring-rose-400/20'
           }`}>
             <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                {scanResult.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />}
-                {scanResult.type === 'warning' && <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />}
-                {scanResult.type === 'error' && <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />}
+              <div className="flex items-start gap-3.5">
+                {scanResult.type === 'success' && (
+                  <div className="p-2 rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5 shadow-xs">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                )}
+                {scanResult.type === 'warning' && (
+                  <div className="p-2 rounded-xl bg-amber-600 text-white shrink-0 mt-0.5 shadow-xs">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                )}
+                {scanResult.type === 'error' && (
+                  <div className="p-2 rounded-xl bg-rose-600 text-white shrink-0 mt-0.5 shadow-xs">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                )}
                 <div>
-                  <h4 className="font-bold text-sm">{scanResult.message}</h4>
+                  <h4 className="font-bold text-sm sm:text-base font-serif">{scanResult.message}</h4>
                   {scanResult.attendee && (
-                    <div className="mt-2 text-xs flex flex-wrap gap-x-4 gap-y-1 font-medium opacity-90">
-                      <span>Coppia: <strong>{scanResult.attendee.coupleNames} {scanResult.attendee.lastName}</strong></span>
+                    <div className="mt-2.5 pt-2.5 border-t border-black/10 text-xs flex flex-wrap gap-x-5 gap-y-1.5 font-medium">
+                      <span>Coppia: <strong className="font-bold text-sm">{scanResult.attendee.coupleNames} {scanResult.attendee.lastName}</strong></span>
                       <span>Nozze: <strong>{formatItalianDate(scanResult.attendee.weddingDate)}</strong></span>
                       <span>Email: <strong>{scanResult.attendee.email}</strong></span>
-                      <span>Ospiti ammessi: <strong>{scanResult.attendee.guestCount || 2}</strong></span>
+                      <span>Ospiti ammessi: <strong className="px-2 py-0.5 rounded bg-black/10 text-[#16391C] font-bold">{scanResult.attendee.guestCount || 2}</strong></span>
+                      <span>ID Biglietto: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-black/10">{scanResult.attendee.id}</code></span>
                     </div>
                   )}
                 </div>
               </div>
               <button
                 onClick={() => setScanResult(null)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-black/5 cursor-pointer"
+                title="Chiudi avviso"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
+
+        {/* Live Smartphone Camera QR Scanner */}
+        <CameraQrScanner onScanSuccess={handleProcessScan} />
+
+        {/* Manual ID / Gun Barcode Scanner Input */}
+        <div className="pt-4 border-t border-[#CAC8AA]/40">
+          <p className="text-xs font-semibold text-[#16391C] mb-2 flex items-center gap-1.5">
+            <span>Oppure ricerca rapida / inserimento manuale codice:</span>
+          </p>
+          <form onSubmit={handleScanSubmit} className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#99A99C]">
+                <QrCode className="w-4 h-4" />
+              </div>
+              <input
+                id="input-scan-code"
+                type="text"
+                placeholder="Digita codice ID Pass (es. SS-25-K8X92) o email invitato..."
+                value={scanInput}
+                onChange={e => setScanInput(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-[#F7F4EC]/60 rounded-xl text-sm text-[#16391C] border border-[#CAC8AA] focus:border-[#16391C] focus:ring-3 focus:ring-[#A89236]/20 focus:outline-none"
+              />
+            </div>
+
+            <button
+              id="btn-submit-scan"
+              type="submit"
+              className="px-6 py-3 bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <CheckCircle2 className="w-4 h-4 text-[#C4AF56]" />
+              Valida Codice
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* Analytics Breakdown: Come hanno conosciuto la fiera */}

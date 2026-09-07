@@ -1,8 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { 
-  Printer, 
-  Download, 
   Share2, 
   Copy, 
   Check, 
@@ -13,10 +11,15 @@ import {
   ShieldCheck,
   Compass,
   Users,
-  Clock
+  Clock,
+  Download,
+  Loader2
 } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
 import { Attendee, FairEventInfo, ACQUISITION_CHANNELS } from '../types';
 import { formatItalianDate } from '../utils/qrUtils';
+import { copyToClipboard } from '../utils/clipboard';
 import { SamarateLogo } from './SamarateLogo';
 
 interface BadgePassCardProps {
@@ -35,82 +38,64 @@ export const BadgePassCard: React.FC<BadgePassCardProps> = ({
   const badgeRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const channelLabel = ACQUISITION_CHANNELS.find(c => c.id === attendee.acquisitionChannel)?.label 
     || attendee.acquisitionChannel;
 
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(attendee.id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyId = async () => {
+    const ok = await copyToClipboard(attendee.id);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handleDownloadPdf = async () => {
+    if (!badgeRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      const element = badgeRef.current;
+      const imgData = await toPng(element, {
+        pixelRatio: 2.5,
+        backgroundColor: '#FFFFFF',
+        skipFonts: true,
+        cacheBust: false,
+      });
 
-  const handleDownloadQR = () => {
-    const svg = document.getElementById(`qr-svg-${attendee.id}`);
-    if (!svg) return;
+      const img = new Image();
+      img.src = imgData;
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve(true);
+        img.onerror = reject;
+      });
 
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
 
-    // High resolution for clean printing / smartphone scanning
-    const size = 650;
-    canvas.width = size;
-    canvas.height = size;
+      const pageWidth = 210;
+      const pageHeight = 297;
+      
+      // Calculate proportionally to fit A4 gracefully
+      const imgWidth = 150; 
+      const imgHeight = (img.naturalHeight * imgWidth) / img.naturalWidth;
+      const x = (pageWidth - imgWidth) / 2;
+      const y = Math.max(12, (pageHeight - imgHeight) / 2 - 8);
 
-    img.onload = () => {
-      if (ctx) {
-        // Draw warm ivory background
-        ctx.fillStyle = "#F7F4EC";
-        ctx.fillRect(0, 0, size, size);
+      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
 
-        // Draw forest green decorative border
-        ctx.strokeStyle = "#16391C";
-        ctx.lineWidth = 10;
-        ctx.strokeRect(15, 15, size - 30, size - 30);
-
-        // Inner gold hairline
-        ctx.strokeStyle = "#A89236";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(25, 25, size - 50, size - 50);
-
-        // Header text
-        ctx.fillStyle = "#16391C";
-        ctx.font = "bold 26px 'Playfair Display', Georgia, serif";
-        ctx.textAlign = "center";
-        ctx.fillText("SAMARATE SPOSI", size / 2, 68);
-
-        ctx.font = "14px 'Plus Jakarta Sans', sans-serif";
-        ctx.fillStyle = "#A89236";
-        ctx.fillText("PASS D'INGRESSO NOMINALE", size / 2, 92);
-
-        // Draw the QR Code
-        ctx.drawImage(img, 75, 120, size - 150, size - 150);
-
-        // Bottom couple name
-        ctx.fillStyle = "#16391C";
-        ctx.font = "bold 24px 'Playfair Display', Georgia, serif";
-        ctx.fillText(`${attendee.coupleNames} ${attendee.lastName}`, size / 2, size - 75);
-
-        // Ticket ID & Wedding date
-        ctx.font = "14px 'Plus Jakarta Sans', sans-serif";
-        ctx.fillStyle = "#556b2f";
-        const dateTxt = attendee.weddingDate ? `Nozze: ${attendee.weddingDate}` : '';
-        ctx.fillText(`${attendee.id}  •  ${dateTxt}`, size / 2, size - 45);
-
-        const a = document.createElement("a");
-        a.download = `Pass_SamarateSposi_${attendee.id}_${attendee.lastName}.png`;
-        a.href = canvas.toDataURL("image/png");
-        a.click();
-      }
-    };
-
-    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+      const sanitizedName = `${attendee.lastName}_${attendee.coupleNames}`
+        .replace(/[^a-zA-Z0-9]/g, '_')
+        .replace(/_+/g, '_');
+      pdf.save(`Pass-Samarate-Sposi-${sanitizedName}-${attendee.id}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleShare = async () => {
@@ -282,43 +267,49 @@ export const BadgePassCard: React.FC<BadgePassCardProps> = ({
 
       {/* Action Controls Toolbar (Hidden in Print) */}
       {!compact && (
-        <div className="no-print mt-6 w-full flex flex-wrap items-center justify-center gap-3">
-          <button
-            id="btn-print-badge"
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#16391C] hover:bg-[#1e4825] text-white rounded-xl font-medium text-sm shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-[#C4AF56]" />
-            Stampa Pass (PDF / A4)
-          </button>
-
-          <button
-            id="btn-download-qr"
-            onClick={handleDownloadQR}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-[#F7F4EC] text-[#16391C] rounded-xl font-medium text-sm border border-[#CAC8AA] shadow-2xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-[#A89236]" />
-            Scarica QR Immagine
-          </button>
-
-          <button
-            id="btn-share-badge"
-            onClick={handleShare}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-[#F7F4EC] text-[#16391C] rounded-xl font-medium text-sm border border-[#CAC8AA] shadow-2xs transition-all cursor-pointer"
-          >
-            <Share2 className="w-4 h-4 text-[#99A99C]" />
-            {shareSuccess ? 'Copiato!' : 'Condividi'}
-          </button>
-
-          {onNewRegistration && (
+        <div className="no-print mt-6 w-full flex flex-col items-center gap-3">
+          <div className="w-full flex flex-wrap items-center justify-center gap-3">
             <button
-              id="btn-new-registration-pass"
-              onClick={onNewRegistration}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#A89236]/20 hover:bg-[#A89236]/30 text-[#16391C] rounded-xl font-semibold text-sm border border-[#A89236]/40 transition-all ml-auto cursor-pointer"
+              id="btn-download-pdf-badge"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="flex items-center gap-2.5 px-6 py-3 bg-[#16391C] hover:bg-[#1e4825] text-white rounded-xl font-bold text-sm shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-75"
             >
-              + Registra Altra Coppia
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 text-[#C4AF56] animate-spin" />
+                  Generazione PDF in corso...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 text-[#C4AF56]" />
+                  Scarica Pass in PDF
+                </>
+              )}
             </button>
-          )}
+
+            <button
+              id="btn-share-badge"
+              onClick={handleShare}
+              className="flex items-center gap-2 px-4 py-3 bg-white hover:bg-[#F7F4EC] text-[#16391C] rounded-xl font-medium text-sm border border-[#CAC8AA] shadow-2xs transition-all cursor-pointer"
+            >
+              <Share2 className="w-4 h-4 text-[#99A99C]" />
+              {shareSuccess ? 'Copiato!' : 'Condividi'}
+            </button>
+
+            {onNewRegistration && (
+              <button
+                id="btn-new-registration-pass"
+                onClick={onNewRegistration}
+                className="flex items-center gap-2 px-4 py-3 bg-[#A89236]/20 hover:bg-[#A89236]/30 text-[#16391C] rounded-xl font-semibold text-sm border border-[#A89236]/40 transition-all cursor-pointer"
+              >
+                + Registra Altra Coppia
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-[#16391C]/75 text-center max-w-md">
+            Il file PDF scaricato contiene il Pass nominale completo di QR code e grafica esattamente come visibile a schermo, pronto da salvare sul tuo dispositivo.
+          </p>
         </div>
       )}
     </div>

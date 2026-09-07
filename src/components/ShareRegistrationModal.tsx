@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { SamarateLogo } from './SamarateLogo';
 import { FairEventInfo } from '../types';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface ShareRegistrationModalProps {
   isOpen: boolean;
@@ -46,20 +47,20 @@ export const ShareRegistrationModal: React.FC<ShareRegistrationModalProps> = ({
   const publicRegisterUrl = `${origin}/?mode=register`;
   const embedCode = `<iframe src="${publicRegisterUrl}" width="100%" height="850" frameborder="0" style="border:none; border-radius:16px; overflow:hidden;"></iframe>`;
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(publicRegisterUrl);
+  const handleCopyLink = async () => {
+    await copyToClipboard(publicRegisterUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const handleCopyCleanLink = (url: string) => {
-    navigator.clipboard.writeText(url);
+  const handleCopyCleanLink = async (url: string) => {
+    await copyToClipboard(url);
     setCopiedCleanLink(true);
     setTimeout(() => setCopiedCleanLink(false), 2500);
   };
 
-  const handleCopyEmbed = () => {
-    navigator.clipboard.writeText(embedCode);
+  const handleCopyEmbed = async () => {
+    await copyToClipboard(embedCode);
     setCopiedEmbed(true);
     setTimeout(() => setCopiedEmbed(false), 2500);
   };

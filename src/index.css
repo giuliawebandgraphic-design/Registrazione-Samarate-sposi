@@ -13,25 +13,48 @@
 }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  html, body {
+    background-color: #FFFFFF !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   body * {
     visibility: hidden;
   }
+
   #printable-badge-area, #printable-badge-area * {
     visibility: visible;
   }
+
   #printable-badge-area {
-    position: absolute;
-    left: 50%;
-    top: 20px;
-    transform: translateX(-50%);
+    position: absolute !important;
+    left: 50% !important;
+    top: 10px !important;
+    transform: translateX(-50%) !important;
     width: 480px !important;
     max-width: 95% !important;
-    margin: 0 auto;
-    padding: 0;
-    background: white !important;
-    border: 1px solid #A89236 !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    border: 1px solid #CAC8AA !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
     box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
+
   .no-print {
     display: none !important;
   }

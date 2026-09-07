@@ -254,7 +254,7 @@ export default function App() {
                   <div>
                     <h3 className="font-bold text-sm font-serif">Pass Sposi Generato con Successo!</h3>
                     <p className="text-xs text-[#16391C]/75">
-                      Conserva questo QR code. Puoi scaricarlo sul tuo telefono o stamparlo su carta per l'accesso gratuito al salone il 10 e 11 Ottobre.
+                      Conserva questo QR code. Puoi scaricarlo in formato PDF per l'accesso gratuito al salone il 10 e 11 Ottobre.
                     </p>
                   </div>
                 </div>
