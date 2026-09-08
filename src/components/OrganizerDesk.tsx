@@ -27,7 +27,8 @@ import {
   Copy,
   RotateCcw,
   BarChart3,
-  ArrowRight
+  ArrowRight,
+  Unlock
 } from 'lucide-react';
 import { 
   Attendee, 
@@ -50,6 +51,7 @@ interface OrganizerDeskProps {
   onDeleteAttendee: (id: string) => void;
   onAddAttendee: (attendee: Attendee) => void;
   onViewBadge: (attendee: Attendee) => void;
+  onExitStaff?: () => void;
 }
 
 export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
@@ -59,6 +61,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   onDeleteAttendee,
   onAddAttendee,
   onViewBadge,
+  onExitStaff,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [channelFilter, setChannelFilter] = useState<string>('all');
@@ -403,117 +406,118 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   };
 
   return (
-    <div className="space-y-8">
-      {/* Top Welcome & Event Status Banner */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#CAC8AA] shadow-xs relative overflow-hidden">
-        {/* Soft luxury golden radial accent */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-[#A89236]/10 via-[#F7F4EC]/40 to-transparent rounded-full -mr-20 -mt-20 pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          {/* Left Column: Title, Badge & Subtitle */}
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#A89236]/15 text-[#16391C] border border-[#A89236]/30 mb-3">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-              <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
-              <span>Desk Accoglienza & Reception • Samarate Sposi</span>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Top Header Bar - Mobile-First & Sleek */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl p-3 sm:p-5 border border-[#CAC8AA]/80 shadow-2xs">
+        {/* Main Title Row */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#16391C]">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+              <span>Desk Accoglienza</span>
+              <span className="text-[#CAC8AA]">•</span>
+              <span className="text-[#A89236] font-medium truncate">Varco Ingressi</span>
             </div>
-            
-            <h1 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold text-[#16391C] tracking-tight leading-tight">
-              Gestione Ingressi & Registro Coppie
+            <h1 className="font-serif text-lg sm:text-2xl font-bold text-[#16391C] mt-0.5 tracking-tight truncate">
+              Gestione Ingressi
             </h1>
-            
-            <p className="text-sm text-[#16391C]/75 mt-2 leading-relaxed max-w-xl">
-              Effettua la scansione dei Pass QR Code ai tornelli, convalida gli accessi o registra sul posto le nuove coppie in arrivo.
-            </p>
           </div>
 
-          {/* Right Column: Unified & Elegant Action Bar */}
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 shrink-0">
-            {/* Primary Action Button */}
+          <button
+            id="btn-quick-add-attendee"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#16391C] hover:bg-[#1e4825] active:scale-95 text-white text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4 text-[#C4AF56] shrink-0" />
+            <span>Nuova Coppia</span>
+          </button>
+        </div>
+
+        {/* Action Toolbar Row */}
+        <div className="mt-3 pt-3 border-t border-[#CAC8AA]/40 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1">
             <button
-              id="btn-quick-add-attendee"
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-[#16391C] hover:bg-[#1e4825] text-white text-sm font-bold shadow-sm hover:shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              id="btn-open-share-modal"
+              onClick={() => setShowShareModal(true)}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-[#F7F4EC]/60 hover:bg-[#F7F4EC] text-[#16391C] text-xs font-medium border border-[#CAC8AA]/70 shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+              title="Condividi link registrazione e scarica QR"
             >
-              <Plus className="w-4 h-4 text-[#C4AF56]" />
-              <span>Iscrizione Rapida all'Ingresso</span>
+              <Share2 className="w-3.5 h-3.5 text-[#A89236] shrink-0" />
+              <span>Condividi</span>
             </button>
 
-            {/* Secondary Toolbar Controls */}
-            <div className="flex flex-wrap items-center gap-2">
+            <button
+              id="btn-export-csv"
+              onClick={() => exportAttendeesToCSV(attendees)}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-[#F7F4EC]/60 hover:bg-[#F7F4EC] text-[#16391C] text-xs font-medium border border-[#CAC8AA]/70 shadow-2xs transition-colors cursor-pointer whitespace-nowrap"
+              title="Esporta elenco completo in CSV"
+            >
+              <Download className="w-3.5 h-3.5 text-[#A89236] shrink-0" />
+              <span>CSV</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-[#16391C]/10 font-bold font-mono">
+                {attendees.length}
+              </span>
+            </button>
+
+            <label 
+              htmlFor="logo-file-input"
+              className="p-1.5 sm:p-2 rounded-xl bg-[#F7F4EC]/60 hover:bg-[#F7F4EC] text-[#16391C] border border-[#CAC8AA]/70 shadow-2xs transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
+              title={hasCustomLogo ? "Cambia logo fiera" : "Carica logo fiera"}
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-[#A89236]" />
+              <input
+                id="logo-file-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoFileUpload}
+              />
+            </label>
+
+            {hasCustomLogo && (
               <button
-                id="btn-open-share-modal"
-                onClick={() => setShowShareModal(true)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs hover:border-[#A89236]/70 transition-all cursor-pointer"
-                title="Condividi modulo esterno e scarica QR Code per locandine"
+                type="button"
+                onClick={handleResetLogo}
+                title="Ripristina logo Samarate Sposi"
+                className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs transition-colors cursor-pointer shrink-0"
               >
-                <Share2 className="w-4 h-4 text-[#A89236]" />
-                <span>Link Esterno & QR</span>
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
-
-              <button
-                id="btn-export-csv"
-                onClick={() => exportAttendeesToCSV(attendees)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs hover:border-[#A89236]/70 transition-all cursor-pointer"
-                title="Esporta elenco completo coppie in formato CSV per Excel"
-              >
-                <Download className="w-4 h-4 text-[#A89236]" />
-                <span>Esporta CSV</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-[#16391C]/10 text-[#16391C]">
-                  {attendees.length}
-                </span>
-              </button>
-
-              <div className="flex items-center">
-                <label 
-                  htmlFor="logo-file-input"
-                  className="flex items-center gap-2 px-3.5 py-3 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs sm:text-sm font-semibold border border-[#CAC8AA] shadow-2xs hover:border-[#A89236]/70 transition-all cursor-pointer"
-                  title={hasCustomLogo ? "Cambia logo fiera personalizzato" : "Carica logo ufficiale personalizzato"}
-                >
-                  <ImageIcon className="w-4 h-4 text-[#A89236]" />
-                  <span>Logo</span>
-                  <input
-                    id="logo-file-input"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoFileUpload}
-                  />
-                </label>
-
-                {hasCustomLogo && (
-                  <button
-                    type="button"
-                    onClick={handleResetLogo}
-                    title="Ripristina logo predefinito Samarate Sposi"
-                    className="ml-1 p-2.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-[#CAC8AA] shadow-2xs transition-all cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
+            )}
           </div>
+
+          {onExitStaff && (
+            <button
+              type="button"
+              onClick={onExitStaff}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs text-[#16391C]/60 hover:text-rose-700 hover:bg-rose-50/60 border border-transparent hover:border-rose-200 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              title="Esci dalla modalità staff"
+            >
+              <Unlock className="w-3 h-3" />
+              <span className="hidden sm:inline">Esci Staff</span>
+              <span className="sm:hidden">Esci</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Responsive Desk Tabs: Sticky Navigation on Mobile */}
-      <div className="sticky top-16 sm:top-20 z-30 -mx-2 sm:mx-0 px-2 sm:px-0 py-2 bg-[#F7F4EC]/95 backdrop-blur-md border-b border-[#CAC8AA]/60 sm:border-0 sm:bg-transparent sm:py-0">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-2 bg-white/95 p-1.5 rounded-2xl border border-[#CAC8AA] shadow-xs">
+      {/* Responsive Desk Tabs: Sticky Navigation */}
+      <div className="sticky top-14 sm:top-18 z-30 -mx-1 sm:mx-0 px-1 sm:px-0 py-1 bg-[#F7F4EC]/95 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-1 sm:gap-2 bg-white p-1 rounded-2xl border border-[#CAC8AA] shadow-xs">
           {/* Tab 1: Scansione QR & Varco */}
           <button
             type="button"
             id="tab-desk-scanner"
             onClick={() => setActiveDeskTab('scan')}
-            className={`flex-1 min-h-[46px] flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            className={`flex-1 min-h-[42px] flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               activeDeskTab === 'scan'
                 ? 'bg-[#16391C] text-white shadow-xs'
                 : 'text-[#16391C]/75 hover:text-[#16391C] hover:bg-[#F7F4EC]'
             }`}
           >
             <QrCode className="w-4 h-4 text-[#C4AF56] shrink-0" />
-            <span className="truncate">Scansione QR</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ml-0.5 shrink-0 ${
+            <span>Scansione</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5 shrink-0 ${
               activeDeskTab === 'scan'
                 ? 'bg-[#C4AF56] text-[#16391C]'
                 : 'bg-[#F7F4EC] text-[#16391C] border border-[#CAC8AA]'
@@ -527,15 +531,15 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
             type="button"
             id="tab-desk-attendees"
             onClick={() => setActiveDeskTab('attendees')}
-            className={`flex-1 min-h-[46px] flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            className={`flex-1 min-h-[42px] flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               activeDeskTab === 'attendees'
                 ? 'bg-[#16391C] text-white shadow-xs'
                 : 'text-[#16391C]/75 hover:text-[#16391C] hover:bg-[#F7F4EC]'
             }`}
           >
             <Users className="w-4 h-4 text-[#A89236] shrink-0" />
-            <span className="truncate">Registro Coppie</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ml-0.5 shrink-0 ${
+            <span>Registro</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5 shrink-0 ${
               activeDeskTab === 'attendees'
                 ? 'bg-[#A89236] text-[#16391C]'
                 : 'bg-[#F7F4EC] text-[#16391C] border border-[#CAC8AA]'
@@ -549,14 +553,14 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
             type="button"
             id="tab-desk-analytics"
             onClick={() => setActiveDeskTab('analytics')}
-            className={`flex-1 min-h-[46px] flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            className={`flex-1 min-h-[42px] flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
               activeDeskTab === 'analytics'
                 ? 'bg-[#16391C] text-white shadow-xs'
                 : 'text-[#16391C]/75 hover:text-[#16391C] hover:bg-[#F7F4EC]'
             }`}
           >
             <BarChart3 className="w-4 h-4 text-[#A89236] shrink-0" />
-            <span className="truncate">Statistiche</span>
+            <span>Statistiche</span>
           </button>
         </div>
       </div>
@@ -565,243 +569,173 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
       {/* TAB 1: SCANSIONE QR & CONTROLLO INGRESSI */}
       {/* ======================================================== */}
       {activeDeskTab === 'scan' && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Overview Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* Card 1: Total Registered */}
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#CAC8AA] shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#99A99C]">
-                  Coppie Iscritte
-                </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-[#16391C] mt-1 font-serif">
-                  {totalCount}
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-[#99A99C] mt-0.5">Pass generati</p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#F7F4EC] border border-[#CAC8AA] flex items-center justify-center text-[#16391C] shrink-0">
-                <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-[#A89236] fill-[#A89236]/20" />
-              </div>
+        <div className="space-y-3.5 sm:space-y-5 animate-fade-in">
+          {/* Quick Metrics Bar - 1 compact row on mobile and desktop */}
+          <div className="grid grid-cols-4 gap-2 bg-white p-2.5 sm:p-3 rounded-2xl border border-[#CAC8AA] shadow-2xs text-center">
+            <div>
+              <div className="text-[10px] uppercase font-bold text-[#99A99C]">Iscritti</div>
+              <div className="text-base sm:text-xl font-bold text-[#16391C] font-serif">{totalCount}</div>
             </div>
-
-            {/* Card 2: Checked In */}
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#CAC8AA] shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#99A99C]">
-                  Presenti
-                </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-emerald-800 mt-1 font-serif">
-                  {checkedInCount}
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-emerald-600 mt-0.5">Ingressi validati</p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                <UserCheck className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
+            <div className="border-l border-[#CAC8AA]/30 pl-1">
+              <div className="text-[10px] uppercase font-bold text-emerald-700">Presenti</div>
+              <div className="text-base sm:text-xl font-bold text-emerald-700 font-serif">{checkedInCount}</div>
             </div>
-
-            {/* Card 3: Pending Arrival */}
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#CAC8AA] shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#99A99C]">
-                  In Arrivo
-                </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-[#A89236] mt-1 font-serif">
-                  {pendingCount}
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-[#A89236] mt-0.5">Pass attivi</p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#A89236]/10 border border-[#A89236]/30 flex items-center justify-center text-[#A89236] shrink-0">
-                <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
+            <div className="border-l border-[#CAC8AA]/30 pl-1">
+              <div className="text-[10px] uppercase font-bold text-[#A89236]">In attesa</div>
+              <div className="text-base sm:text-xl font-bold text-[#A89236] font-serif">{pendingCount}</div>
             </div>
-
-            {/* Card 4: Attendance Rate */}
-            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#CAC8AA] shadow-xs flex items-center justify-between">
-              <div>
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#99A99C]">
-                  Affluenza
-                </span>
-                <div className="text-2xl sm:text-3xl font-extrabold text-[#16391C] mt-1 font-serif">
-                  {checkInRate}%
-                </div>
-                <p className="text-[10px] sm:text-[11px] text-[#99A99C] mt-0.5">Tasso presenza</p>
-              </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-[#16391C]/10 border border-[#16391C]/20 flex items-center justify-center text-[#16391C] shrink-0">
-                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-              </div>
+            <div className="border-l border-[#CAC8AA]/30 pl-1">
+              <div className="text-[10px] uppercase font-bold text-[#16391C]/70">Affluenza</div>
+              <div className="text-base sm:text-xl font-bold text-[#16391C] font-serif">{checkInRate}%</div>
             </div>
           </div>
 
-          {/* QR Scanner & Gate Terminal Box */}
-          <div className="bg-white rounded-3xl p-5 sm:p-8 border border-[#CAC8AA] shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#CAC8AA]/40">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#16391C] text-white flex items-center justify-center shrink-0">
-                    <QrCode className="w-4 h-4 text-[#C4AF56]" />
+          {/* Real-time Scan Result Banner */}
+          {scanResult && (
+            <div className={`p-3.5 sm:p-4 rounded-2xl border transition-all shadow-xs ${
+              scanResult.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 ring-2 ring-emerald-400/20' :
+              scanResult.type === 'warning' ? 'bg-amber-50 border-amber-300 text-amber-950 ring-2 ring-amber-400/20' :
+              'bg-rose-50 border-rose-300 text-rose-950 ring-2 ring-rose-400/20'
+            }`}>
+              <div className="flex items-start justify-between gap-2.5">
+                <div className="flex items-start gap-2.5">
+                  {scanResult.type === 'success' && (
+                    <div className="p-1.5 rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5 shadow-xs">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                  )}
+                  {scanResult.type === 'warning' && (
+                    <div className="p-1.5 rounded-xl bg-amber-600 text-white shrink-0 mt-0.5 shadow-xs">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                  )}
+                  {scanResult.type === 'error' && (
+                    <div className="p-1.5 rounded-xl bg-rose-600 text-white shrink-0 mt-0.5 shadow-xs">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                  )}
+                  <div>
+                    <h4 className="font-bold text-sm sm:text-base font-serif">{scanResult.message}</h4>
+                    {scanResult.attendee && (
+                      <div className="mt-2 pt-2 border-t border-black/10 text-xs flex flex-wrap gap-x-3 gap-y-1 font-medium">
+                        <span>Coppia: <strong className="font-bold">{scanResult.attendee.coupleNames} {scanResult.attendee.lastName}</strong></span>
+                        <span>Nozze: <strong>{formatItalianDate(scanResult.attendee.weddingDate)}</strong></span>
+                        <span>Ospiti: <strong className="px-1.5 py-0.2 rounded bg-black/10 font-bold">{scanResult.attendee.guestCount || 2}</strong></span>
+                        <span>ID: <code className="font-mono bg-white px-1 py-0.2 rounded border border-black/10 font-bold">{scanResult.attendee.id}</code></span>
+                      </div>
+                    )}
                   </div>
-                  <h2 className="font-serif text-lg sm:text-xl font-bold text-[#16391C]">
-                    Terminale di Scansione & Check-in Rapido
-                  </h2>
                 </div>
-                <p className="text-xs text-[#16391C]/75 mt-1">
-                  Inquadra con la fotocamera il Pass QR mostrato dallo smartphone degli sposi per convalidare l'accesso.
-                </p>
-              </div>
-
-              <div className="sm:text-right">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#F7F4EC] text-[#16391C] text-xs font-semibold rounded-full border border-[#CAC8AA]">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  Varco: {eventInfo.gate}
-                </span>
+                <button
+                  onClick={() => setScanResult(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+                  title="Chiudi avviso"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Real-time Scan Result Banner */}
-            {scanResult && (
-              <div className={`p-5 rounded-2xl border transition-all shadow-xs ${
-                scanResult.type === 'success' ? 'bg-emerald-50 border-emerald-300 text-emerald-950 ring-2 ring-emerald-400/20' :
-                scanResult.type === 'warning' ? 'bg-amber-50 border-amber-300 text-amber-950 ring-2 ring-amber-400/20' :
-                'bg-rose-50 border-rose-300 text-rose-950 ring-2 ring-rose-400/20'
-              }`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3.5">
-                    {scanResult.type === 'success' && (
-                      <div className="p-2 rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5 shadow-xs">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </div>
-                    )}
-                    {scanResult.type === 'warning' && (
-                      <div className="p-2 rounded-xl bg-amber-600 text-white shrink-0 mt-0.5 shadow-xs">
-                        <AlertCircle className="w-5 h-5" />
-                      </div>
-                    )}
-                    {scanResult.type === 'error' && (
-                      <div className="p-2 rounded-xl bg-rose-600 text-white shrink-0 mt-0.5 shadow-xs">
-                        <AlertCircle className="w-5 h-5" />
-                      </div>
-                    )}
-                    <div>
-                      <h4 className="font-bold text-sm sm:text-base font-serif">{scanResult.message}</h4>
-                      {scanResult.attendee && (
-                        <div className="mt-2.5 pt-2.5 border-t border-black/10 text-xs flex flex-wrap gap-x-5 gap-y-1.5 font-medium">
-                          <span>Coppia: <strong className="font-bold text-sm">{scanResult.attendee.coupleNames} {scanResult.attendee.lastName}</strong></span>
-                          <span>Nozze: <strong>{formatItalianDate(scanResult.attendee.weddingDate)}</strong></span>
-                          <span>Email: <strong>{scanResult.attendee.email}</strong></span>
-                          <span>Ospiti ammessi: <strong className="px-2 py-0.5 rounded bg-black/10 text-[#16391C] font-bold">{scanResult.attendee.guestCount || 2}</strong></span>
-                          <span>ID Biglietto: <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-black/10">{scanResult.attendee.id}</code></span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+          {/* Live Smartphone Camera QR Scanner */}
+          <CameraQrScanner onScanSuccess={handleProcessScan} />
+
+          {/* Manual ID Search & Quick Check-in Bar */}
+          <div className="bg-white rounded-2xl p-3 sm:p-4 border border-[#CAC8AA] shadow-xs space-y-2.5">
+            <form onSubmit={handleScanSubmit} className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#99A99C] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="input-scan-code"
+                  type="text"
+                  placeholder="Cerca cognome, email o ID (es. K8X92)..."
+                  value={scanInput}
+                  onChange={e => setScanInput(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2.5 bg-[#F7F4EC]/60 rounded-xl text-xs sm:text-sm text-[#16391C] border border-[#CAC8AA] focus:border-[#16391C] focus:outline-none"
+                />
+                {scanInput && (
                   <button
-                    onClick={() => setScanResult(null)}
-                    className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-black/5 cursor-pointer"
-                    title="Chiudi avviso"
+                    type="button"
+                    onClick={() => setScanInput('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                </div>
+                )}
+              </div>
+              <button
+                id="btn-submit-scan"
+                type="submit"
+                className="px-4 py-2.5 bg-[#16391C] hover:bg-[#1f4a25] active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer shrink-0 flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#C4AF56]" />
+                <span>Convalida</span>
+              </button>
+            </form>
+
+            {/* Instant match suggestions if typing search */}
+            {scanInput.trim().length >= 2 && (
+              <div className="pt-2 border-t border-[#CAC8AA]/30 space-y-1.5 max-h-48 overflow-y-auto">
+                {attendees
+                  .filter(a => 
+                    `${a.coupleNames} ${a.lastName}`.toLowerCase().includes(scanInput.toLowerCase()) ||
+                    a.email.toLowerCase().includes(scanInput.toLowerCase()) ||
+                    a.id.toLowerCase().includes(scanInput.toLowerCase())
+                  )
+                  .slice(0, 4)
+                  .map(att => (
+                    <div 
+                      key={att.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-[#F7F4EC] hover:bg-[#eae6d8] transition-colors text-xs"
+                    >
+                      <div className="min-w-0 flex-1 pr-2">
+                        <div className="font-bold text-[#16391C] truncate">{att.coupleNames} {att.lastName}</div>
+                        <div className="text-[10px] text-[#99A99C] flex items-center gap-2">
+                          <span className="font-mono font-bold text-[#A89236]">{att.id}</span>
+                          <span>{att.guestCount || 2} ospiti</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleProcessScan(att.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors shrink-0 ${
+                          att.checkedIn
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-[#16391C] text-white hover:bg-[#1f4a25]'
+                        }`}
+                      >
+                        {att.checkedIn ? '✓ Presente' : 'Convalida'}
+                      </button>
+                    </div>
+                  ))}
               </div>
             )}
 
-            {/* Live Smartphone Camera QR Scanner */}
-            <CameraQrScanner onScanSuccess={handleProcessScan} />
-
-            {/* Quick Test & Verification from Registry List */}
-            <div className="p-4 rounded-2xl bg-[#F7F4EC]/90 border border-[#CAC8AA] space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#16391C] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
-                  Test Rapido Riconoscimento Codici (dalla lista iscritti):
-                </span>
-                <span className="text-[10px] font-semibold text-[#16391C]/60 uppercase tracking-wider">
-                  1-click simulator
-                </span>
-              </div>
-              <p className="text-[11px] text-[#16391C]/75">
-                Tocca una delle coppie presenti nel Registro per testare subito la scansione, il feedback audio e la convalida:
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {attendees.slice(0, 6).map(att => (
+            {/* Collapsible 1-Click Test Simulator */}
+            <details className="text-xs text-[#16391C]/75 pt-1">
+              <summary className="cursor-pointer font-semibold select-none text-[#16391C]/80 hover:text-[#16391C] flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-[#A89236]" />
+                <span>Simula test con 1 clic</span>
+              </summary>
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {attendees.slice(0, 5).map(att => (
                   <button
                     key={att.id}
                     type="button"
                     onClick={() => handleProcessScan(att.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border shadow-2xs cursor-pointer ${
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium border cursor-pointer transition-all shadow-2xs ${
                       att.checkedIn 
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' 
-                        : 'bg-white text-[#16391C] border-[#CAC8AA] hover:bg-[#F7F4EC] hover:border-[#16391C]'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                        : 'bg-white text-[#16391C] border-[#CAC8AA] hover:bg-[#F7F4EC]'
                     }`}
-                    title={`Testa scansione pass di ${att.coupleNames} ${att.lastName}`}
                   >
-                    <QrCode className="w-3.5 h-3.5 text-[#A89236]" />
                     <span>{att.coupleNames} {att.lastName}</span>
-                    <code className="text-[10px] font-mono bg-black/5 px-1.5 py-0.5 rounded text-[#16391C] font-bold">
-                      {att.id}
-                    </code>
-                    {att.checkedIn ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600 ml-0.5" />
-                    ) : (
-                      <span className="w-2 h-2 rounded-full bg-amber-500 ml-0.5" title="In attesa" />
-                    )}
+                    <code className="text-[10px] font-mono opacity-70">({att.id.slice(-5)})</code>
+                    {att.checkedIn && <Check className="w-3 h-3 text-emerald-600" />}
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Manual ID / Gun Barcode Scanner Input */}
-            <div className="pt-2">
-              <p className="text-xs font-semibold text-[#16391C] mb-2 flex items-center gap-1.5">
-                <span>Oppure ricerca rapida / inserimento manuale codice:</span>
-              </p>
-              <form onSubmit={handleScanSubmit} className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#99A99C]">
-                    <QrCode className="w-4 h-4" />
-                  </div>
-                  <input
-                    id="input-scan-code"
-                    type="text"
-                    placeholder="Digita codice ID Pass (es. SS-25-K8X92, K8X92, email o cognome)..."
-                    value={scanInput}
-                    onChange={e => setScanInput(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-[#F7F4EC]/60 rounded-xl text-sm text-[#16391C] border border-[#CAC8AA] focus:border-[#16391C] focus:ring-3 focus:ring-[#A89236]/20 focus:outline-none"
-                  />
-                </div>
-
-                <button
-                  id="btn-submit-scan"
-                  type="submit"
-                  className="px-6 py-3 bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer shrink-0"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-[#C4AF56]" />
-                  Valida Codice
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Quick link to Attendee List */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-[#F7F4EC] border border-[#CAC8AA] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h4 className="font-bold text-sm text-[#16391C] flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-[#A89236]" />
-                Consulta o modifica la lista completa iscritti
-              </h4>
-              <p className="text-xs text-[#16391C]/75 mt-0.5">
-                Accedi al Registro Coppie ({totalCount} iscrizioni) per filtrare per cognome, verificare contatti o forzare il check-in manuale.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveDeskTab('attendees')}
-              className="px-4 py-2.5 rounded-xl bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer shrink-0"
-            >
-              <span>Apri Registro Coppie ({totalCount})</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#C4AF56]" />
-            </button>
+            </details>
           </div>
         </div>
       )}
@@ -811,103 +745,88 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
       {/* ======================================================== */}
       {activeDeskTab === 'attendees' && (
         <div className="space-y-4 animate-fade-in">
-          {/* Registry Header Toolbar & Summary */}
-          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#CAC8AA] shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#CAC8AA]/40">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#16391C] text-[#C4AF56] flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <h3 className="font-serif text-lg sm:text-xl font-bold text-[#16391C]">
-                    Registro Coppie Iscritte
-                  </h3>
-                </div>
-                <p className="text-xs text-[#16391C]/75 mt-0.5">
-                  Visualizza, cerca e gestisci gli sposi registrati. Convalida o annulla l'ingresso con un tocco.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
+          {/* Registry Toolbar - Compact on mobile */}
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-[#CAC8AA] shadow-xs space-y-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-[#99A99C] absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cerca nome, cognome, email o ID pass..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 bg-[#F7F4EC]/60 rounded-xl text-xs sm:text-sm border border-[#CAC8AA] text-[#16391C] placeholder-[#99A99C] focus:border-[#16391C] focus:outline-none"
+              />
+              {searchTerm && (
                 <button
-                  type="button"
-                  onClick={() => setShowAddModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                 >
-                  <Plus className="w-3.5 h-3.5 text-[#C4AF56]" />
-                  <span>Nuova Coppia</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => exportAttendeesToCSV(attendees)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F7F4EC] text-[#16391C] text-xs font-bold border border-[#CAC8AA] transition-all shadow-2xs cursor-pointer"
-                  title="Esporta CSV per Excel"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#A89236]" />
-                  <span>CSV</span>
-                </button>
-              </div>
+              )}
             </div>
 
-            {/* Filters Row: Optimized for Mobile and Desktop */}
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-              {/* Search Input */}
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-[#99A99C] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cerca nome, cognome, email o ID biglietto..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2.5 bg-[#F7F4EC]/60 rounded-xl text-xs sm:text-sm border border-[#CAC8AA] text-[#16391C] placeholder-[#99A99C] focus:border-[#16391C] focus:outline-none"
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+            {/* Status Pills & Channel Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    statusFilter === 'all'
+                      ? 'bg-[#16391C] text-white shadow-2xs'
+                      : 'bg-[#F7F4EC] text-[#16391C]/75 hover:text-[#16391C] border border-[#CAC8AA]/60'
+                  }`}
+                >
+                  Tutti ({totalCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('checkedIn')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    statusFilter === 'checkedIn'
+                      ? 'bg-emerald-700 text-white shadow-2xs'
+                      : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                  }`}
+                >
+                  Presenti ({checkedInCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('pending')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                    statusFilter === 'pending'
+                      ? 'bg-[#A89236] text-[#16391C] shadow-2xs font-black'
+                      : 'bg-[#A89236]/10 text-[#16391C]/80 hover:bg-[#A89236]/20 border border-[#A89236]/30'
+                  }`}
+                >
+                  In attesa ({pendingCount})
+                </button>
               </div>
 
-              {/* Status & Channel Filters */}
-              <div className="flex items-center gap-2">
-                {/* Status Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value as any)}
-                  className="flex-1 md:flex-initial px-3 py-2.5 bg-[#F7F4EC]/60 rounded-xl text-xs font-semibold border border-[#CAC8AA] text-[#16391C] focus:outline-none focus:border-[#16391C]"
-                >
-                  <option value="all">Tutti ({totalCount})</option>
-                  <option value="checkedIn">Presenti ({checkedInCount})</option>
-                  <option value="pending">In attesa ({pendingCount})</option>
-                </select>
-
-                {/* Channel Filter */}
-                <select
-                  value={channelFilter}
-                  onChange={e => setChannelFilter(e.target.value)}
-                  className="flex-1 md:flex-initial px-3 py-2.5 bg-[#F7F4EC]/60 rounded-xl text-xs font-semibold border border-[#CAC8AA] text-[#16391C] focus:outline-none focus:border-[#16391C] max-w-[180px]"
-                >
-                  <option value="all">Tutti i canali</option>
-                  {ACQUISITION_CHANNELS.map(ch => (
-                    <option key={ch.id} value={ch.id}>{ch.label}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Channel Selector */}
+              <select
+                value={channelFilter}
+                onChange={e => setChannelFilter(e.target.value)}
+                className="px-2.5 py-1.5 bg-[#F7F4EC]/60 rounded-lg text-xs font-semibold border border-[#CAC8AA] text-[#16391C] focus:outline-none focus:border-[#16391C]"
+              >
+                <option value="all">Tutti i canali</option>
+                {ACQUISITION_CHANNELS.map(ch => (
+                  <option key={ch.id} value={ch.id}>{ch.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
           {/* Attendee Display Container */}
-          <div className="bg-white rounded-3xl border border-[#CAC8AA] shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-[#CAC8AA] shadow-sm overflow-hidden">
             {/* 1. MOBILE VIEW: Touch Cards (< md) */}
             <div className="block md:hidden divide-y divide-[#CAC8AA]/30">
               {filteredAttendees.length === 0 ? (
-                <div className="py-12 px-4 text-center text-slate-400">
+                <div className="py-10 px-4 text-center text-slate-400">
                   <Heart className="w-8 h-8 text-[#CAC8AA] mx-auto mb-2" />
-                  Nessuna coppia trovata con i filtri selezionati.
+                  <p className="text-xs">Nessuna coppia trovata con i filtri selezionati.</p>
                 </div>
               ) : (
                 filteredAttendees.map((attendee) => {
@@ -915,120 +834,112 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                   return (
                     <div 
                       key={attendee.id}
-                      className={`p-4 transition-colors space-y-3 ${
-                        attendee.checkedIn ? 'bg-emerald-50/25' : 'bg-white'
+                      className={`p-3.5 space-y-2.5 transition-colors ${
+                        attendee.checkedIn ? 'bg-emerald-50/20' : 'bg-white'
                       }`}
                     >
-                      {/* Top: Names, Pass ID & Status Badge */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="font-bold text-slate-900 text-base leading-tight">
+                      {/* Top: Names, Pass ID & Big 1-Touch Check-in button */}
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-serif font-bold text-slate-900 text-base leading-snug truncate">
                             {attendee.coupleNames} {attendee.lastName}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="font-mono text-xs text-[#A89236] font-bold bg-[#A89236]/10 px-2 py-0.5 rounded-md border border-[#A89236]/20">
+                          </h4>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="font-mono text-[11px] font-bold text-[#A89236] bg-[#A89236]/10 px-1.5 py-0.2 rounded border border-[#A89236]/20">
                               {attendee.id}
                             </span>
                             <span className="text-[11px] text-slate-500 font-medium">
                               {attendee.guestCount || 2} ospiti
                             </span>
+                            {attendee.checkedIn && attendee.checkInTime && (
+                              <span className="text-[10px] text-emerald-700 font-semibold">
+                                ({attendee.checkInTime})
+                              </span>
+                            )}
                           </div>
                         </div>
 
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold shrink-0 ${
-                          attendee.checkedIn 
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
-                            : 'bg-amber-50 text-amber-800 border border-amber-300'
-                        }`}>
-                          {attendee.checkedIn ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              Presente
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="w-3 h-3 text-amber-600" />
-                              In attesa
-                            </>
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Mid: Wedding Date, Contact details, Channel */}
-                      <div className="grid grid-cols-1 gap-1.5 text-xs text-slate-600 pt-1">
-                        <div className="flex items-center gap-1.5 text-[#16391C]">
-                          <Calendar className="w-3.5 h-3.5 text-[#A89236] shrink-0" />
-                          <span>Data Nozze: <strong>{formatItalianDate(attendee.weddingDate)}</strong></span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2">
-                          <a 
-                            href={`mailto:${attendee.email}`} 
-                            className="flex items-center gap-1.5 text-slate-700 hover:text-[#16391C] truncate underline"
-                          >
-                            <Mail className="w-3.5 h-3.5 text-[#99A99C] shrink-0" />
-                            <span className="truncate">{attendee.email}</span>
-                          </a>
-
-                          {attendee.phone && (
-                            <a 
-                              href={`tel:${attendee.phone}`}
-                              className="flex items-center gap-1 text-[#16391C] font-semibold bg-[#F7F4EC] px-2 py-0.5 rounded-md border border-[#CAC8AA] shrink-0"
-                            >
-                              <Phone className="w-3 h-3 text-[#A89236]" />
-                              {attendee.phone}
-                            </a>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500">
-                          <div className="flex items-center gap-1 truncate">
-                            <Compass className="w-3 h-3 text-[#99A99C] shrink-0" />
-                            <span className="truncate">Fonte: {channel}</span>
-                          </div>
-                          {attendee.checkedIn && attendee.checkInTime && (
-                            <span className="text-emerald-700 font-semibold shrink-0">
-                              Ingresso: {attendee.checkInTime}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Bottom: Big Touch Action Buttons (min-height 44px) */}
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#CAC8AA]/30">
-                        {/* 1: Check-in Toggle */}
+                        {/* Direct 1-Touch Check-in button */}
                         <button
                           type="button"
                           onClick={() => handleToggleCheckIn(attendee)}
-                          className={`min-h-[42px] col-span-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+                          className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95 shadow-2xs ${
                             attendee.checkedIn
                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : 'bg-[#16391C] text-white hover:bg-[#1f4a25]'
+                              : 'bg-[#16391C] hover:bg-[#1f4a25] text-white'
                           }`}
                         >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>{attendee.checkedIn ? 'Annulla' : 'Check-in'}</span>
+                          <Check className="w-4 h-4" />
+                          <span>{attendee.checkedIn ? 'Presente' : 'Check-in'}</span>
                         </button>
+                      </div>
 
-                        {/* 2: Mostra QR Modal */}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedQrModalAttendee(attendee)}
-                          className="min-h-[42px] col-span-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-bold bg-white text-[#16391C] border border-[#CAC8AA] hover:bg-[#F7F4EC] transition-all cursor-pointer shadow-2xs"
-                        >
-                          <QrCode className="w-3.5 h-3.5 text-[#A89236]" />
-                          <span>QR Pass</span>
-                        </button>
+                      {/* Mid: Wedding Date & Direct Contacts */}
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-600 pt-0.5">
+                        <div className="flex items-center gap-1 text-[#16391C]">
+                          <Calendar className="w-3.5 h-3.5 text-[#A89236]" />
+                          <span>Nozze: <strong>{formatItalianDate(attendee.weddingDate)}</strong></span>
+                        </div>
 
-                        {/* 3: Pass Completo */}
-                        <button
-                          type="button"
-                          onClick={() => onViewBadge(attendee)}
-                          className="min-h-[42px] col-span-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl text-xs font-bold bg-white text-[#16391C] border border-[#CAC8AA] hover:bg-[#F7F4EC] transition-all cursor-pointer shadow-2xs"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 text-[#A89236]" />
-                          <span>Vedi Pass</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {attendee.phone && (
+                            <a 
+                              href={`tel:${attendee.phone}`}
+                              className="flex items-center gap-1 text-[#16391C] font-semibold bg-[#F7F4EC] px-2 py-0.5 rounded-md border border-[#CAC8AA]"
+                              title={`Chiama ${attendee.phone}`}
+                            >
+                              <Phone className="w-3 h-3 text-[#A89236]" />
+                              <span>{attendee.phone}</span>
+                            </a>
+                          )}
+                          <a 
+                            href={`mailto:${attendee.email}`} 
+                            className="text-slate-500 hover:text-[#16391C] p-1"
+                            title={`Invia email a ${attendee.email}`}
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Bottom: Channel badge & Action buttons */}
+                      <div className="flex items-center justify-between pt-1 border-t border-black/5 text-xs">
+                        <span className="text-[11px] text-slate-400 truncate max-w-[140px]">
+                          {channel}
+                        </span>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedQrModalAttendee(attendee)}
+                            className="px-2.5 py-1 rounded-lg bg-[#F7F4EC] hover:bg-[#eae6d8] text-[#16391C] font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-[#A89236]" />
+                            <span>QR</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onViewBadge(attendee)}
+                            className="px-2.5 py-1 rounded-lg bg-[#F7F4EC] hover:bg-[#eae6d8] text-[#16391C] font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-[#A89236]" />
+                            <span>Pass</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Eliminare ${attendee.coupleNames} ${attendee.lastName}?`)) {
+                                onDeleteAttendee(attendee.id);
+                              }
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer transition-colors"
+                            title="Elimina"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

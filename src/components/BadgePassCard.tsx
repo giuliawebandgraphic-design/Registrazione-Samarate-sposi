@@ -132,7 +132,7 @@ export const BadgePassCard: React.FC<BadgePassCardProps> = ({
         {/* Header Ribbon / Event Banner */}
         <div className="bg-gradient-to-br from-[#16391C] via-[#1d4724] to-[#254f2c] px-6 py-5 text-white relative">
           <div className="flex items-center justify-between gap-3">
-            <SamarateLogo size="md" variant="light" showSubline={true} />
+            <SamarateLogo size="md" variant="light" />
             <div className="text-right">
               <span className="inline-block bg-[#A89236] text-[#16391C] text-xs font-black uppercase px-3 py-1 rounded-full shadow-xs tracking-wider">
                 {eventInfo.edition}
@@ -307,9 +307,6 @@ export const BadgePassCard: React.FC<BadgePassCardProps> = ({
               </button>
             )}
           </div>
-          <p className="text-xs text-[#16391C]/75 text-center max-w-md">
-            Il file PDF scaricato contiene il Pass nominale completo di QR code e grafica esattamente come visibile a schermo, pronto da salvare sul tuo dispositivo.
-          </p>
         </div>
       )}
     </div>

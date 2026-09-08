@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import defaultLogoImg from '../assets/images/samarate_sposi_logo_1788813094721.jpg';
+import officialLogoImg from '../assets/images/logo-03.png';
 import { subscribeToCustomLogo } from '../lib/firebase';
 
 interface SamarateLogoProps {
@@ -14,8 +14,6 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
   className = '',
   size = 'md',
   variant = 'dark',
-  showSubline = true,
-  orientation = 'horizontal',
 }) => {
   const [currentLogoSrc, setCurrentLogoSrc] = useState<string>(() => {
     try {
@@ -24,13 +22,11 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
     } catch {
       // safe
     }
-    return '/logo-03.png';
+    return officialLogoImg;
   });
 
   const [imageError, setImageError] = useState(false);
   const isLight = variant === 'light';
-  
-  const textColor = isLight ? 'text-[#F7F4EC]' : 'text-[#16391C]';
 
   useEffect(() => {
     // 1. Cloud Firestore real-time logo synchronization
@@ -48,6 +44,9 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
         if (saved) {
           setCurrentLogoSrc(saved);
           setImageError(false);
+        } else {
+          setCurrentLogoSrc(officialLogoImg);
+          setImageError(false);
         }
       } catch {
         // safe
@@ -63,102 +62,73 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
 
   const sizeConfig = {
     sm: {
-      img: 'w-10 h-10',
-      script: 'text-lg',
-      sposi: 'text-xs tracking-[0.22em]',
-      container: 'gap-2',
-      ringsSvg: 'w-7 h-7',
+      img: 'h-9 sm:h-10 max-w-[140px] sm:max-w-[170px]',
+      wrapper: 'px-2 py-0.5',
+      fallback: 'w-24 h-10',
     },
     md: {
-      img: 'w-14 h-14',
-      script: 'text-2xl',
-      sposi: 'text-sm tracking-[0.28em]',
-      container: 'gap-2.5',
-      ringsSvg: 'w-10 h-10',
+      img: 'h-13 sm:h-15 max-w-[200px] sm:max-w-[240px]',
+      wrapper: 'px-2.5 py-1',
+      fallback: 'w-36 h-14',
     },
     lg: {
-      img: 'w-24 h-24 sm:w-28 sm:h-28',
-      script: 'text-3xl sm:text-4xl',
-      sposi: 'text-lg tracking-[0.35em]',
-      container: 'gap-3',
-      ringsSvg: 'w-16 h-16',
+      img: 'h-20 sm:h-24 max-w-[280px] sm:max-w-[340px]',
+      wrapper: 'px-4 py-2',
+      fallback: 'w-48 h-20',
     },
     xl: {
-      img: 'w-32 h-32 sm:w-36 sm:h-36',
-      script: 'text-4xl sm:text-5xl',
-      sposi: 'text-xl tracking-[0.4em]',
-      container: 'gap-4',
-      ringsSvg: 'w-20 h-20',
+      img: 'h-28 sm:h-36 max-w-[360px] sm:max-w-[460px]',
+      wrapper: 'px-6 py-3',
+      fallback: 'w-64 h-28',
     },
   }[size];
 
-  const isVertical = orientation === 'vertical';
-
   const handleImgError = () => {
-    // If '/logo-03.png' failed, try default bundled asset
-    if (currentLogoSrc !== defaultLogoImg) {
-      setCurrentLogoSrc(defaultLogoImg);
+    if (currentLogoSrc !== officialLogoImg) {
+      setCurrentLogoSrc(officialLogoImg);
     } else {
       setImageError(true);
     }
   };
 
-  return (
-    <div className={`flex ${isVertical ? 'flex-col items-center text-center' : 'items-center'} ${sizeConfig.container} ${className}`}>
-      {/* Official Logo Artwork */}
-      {!imageError ? (
-        <div className={`relative shrink-0 ${sizeConfig.img} rounded-2xl overflow-hidden shadow-xs border ${isLight ? 'border-[#A89236]/50' : 'border-[#CAC8AA]'} bg-white p-0.5`}>
-          <img
-            src={currentLogoSrc}
-            alt="Logo Ufficiale Samarate Sposi"
-            onError={handleImgError}
-            className="w-full h-full object-cover rounded-xl"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      ) : (
-        /* Precise Vector Fallback with Golden Intertwined Rings */
-        <div className={`relative shrink-0 ${sizeConfig.ringsSvg} flex items-center justify-center`}>
-          <svg
-            viewBox="0 0 100 80"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-full h-full filter drop-shadow-xs"
-          >
-            <defs>
-              <linearGradient id="goldGradFallback" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#D9C66E" />
-                <stop offset="50%" stopColor="#A89236" />
-                <stop offset="100%" stopColor="#877322" />
-              </linearGradient>
-            </defs>
-            <ellipse cx="38" cy="42" rx="24" ry="24" stroke="url(#goldGradFallback)" strokeWidth="6" />
-            <ellipse cx="62" cy="38" rx="24" ry="24" stroke="url(#goldGradFallback)" strokeWidth="6" />
-            <path d="M 46 22 A 24 24 0 0 1 60 30" stroke="url(#goldGradFallback)" strokeWidth="6.5" />
-          </svg>
-        </div>
-      )}
-
-      {/* Brand Typography */}
-      <div className={`flex flex-col ${isVertical ? 'items-center mt-1' : ''}`}>
-        <span
-          className={`font-['Alex_Brush',cursive] leading-none ${sizeConfig.script} ${textColor} select-none`}
-          style={{ transform: 'rotate(-2deg)', display: 'inline-block' }}
-        >
-          Samarate
-        </span>
-        <span
-          className={`font-serif font-bold uppercase ${sizeConfig.sposi} ${textColor} leading-tight select-none`}
-          style={{ letterSpacing: '0.28em' }}
-        >
-          SPOSI
-        </span>
-        {showSubline && (
-          <span className={`text-[10px] tracking-widest uppercase font-semibold ${isLight ? 'text-[#CAC8AA]' : 'text-[#A89236]'} mt-0.5`}>
-            Salone delle Nozze
-          </span>
-        )}
+  if (imageError) {
+    return (
+      <div className={`inline-flex items-center gap-2 ${className}`}>
+        <svg viewBox="0 0 160 50" fill="none" xmlns="http://www.w3.org/2000/svg" className={`${sizeConfig.fallback}`}>
+          <text x="5" y="24" fontFamily="Alex Brush, cursive" fontSize="22" fill="#16391C">Samarate</text>
+          <text x="5" y="44" fontFamily="serif" fontWeight="bold" fontSize="16" letterSpacing="4" fill="#16391C">SPOSI</text>
+          <ellipse cx="68" cy="38" rx="7" ry="7" stroke="#A89236" strokeWidth="2.5" />
+          <ellipse cx="76" cy="38" rx="7" ry="7" stroke="#A89236" strokeWidth="2.5" />
+        </svg>
       </div>
+    );
+  }
+
+  // If used on a dark background (e.g. VIP badge header banner), frame it in a luxury white card
+  if (isLight) {
+    return (
+      <div className={`inline-flex items-center justify-center bg-white rounded-2xl ${sizeConfig.wrapper} shadow-sm border border-white/80 ${className}`}>
+        <img
+          src={currentLogoSrc}
+          alt="Samarate Sposi - Salone Ufficiale"
+          onError={handleImgError}
+          className={`w-auto ${sizeConfig.img} object-contain`}
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    );
+  }
+
+  // On light or ivory background (header, forms, modals, footer): blend seamlessly with mix-blend-multiply
+  return (
+    <div className={`inline-flex items-center justify-center ${className}`}>
+      <img
+        src={currentLogoSrc}
+        alt="Samarate Sposi - Salone Ufficiale"
+        onError={handleImgError}
+        className={`w-auto ${sizeConfig.img} object-contain mix-blend-multiply`}
+        referrerPolicy="no-referrer"
+      />
     </div>
   );
 };

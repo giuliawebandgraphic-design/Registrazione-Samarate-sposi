@@ -321,33 +321,30 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
   }, [isOpen, startScanner, stopScanner]);
 
   return (
-    <div className="bg-[#16391C] rounded-3xl p-5 sm:p-6 text-white shadow-lg border border-[#A89236]/30 overflow-hidden">
-      {/* Top Header Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/15">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-[#C4AF56] text-[#16391C] flex items-center justify-center font-bold shadow-xs">
-            <Camera className="w-5 h-5" />
+    <div className="bg-[#16391C] rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 text-white shadow-md border border-[#A89236]/30 overflow-hidden">
+      {/* Top Header Controls - Compact on mobile */}
+      <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/15">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-[#C4AF56] text-[#16391C] flex items-center justify-center font-bold shadow-xs shrink-0">
+            <Camera className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-serif text-lg font-bold text-white tracking-wide">
-                Scanner Fotocamera QR Live
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-serif text-base sm:text-lg font-bold text-white tracking-wide">
+                Scanner QR
               </h3>
               {isScanning && (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   ATTIVO
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#CAC8AA]">
-              Punta la fotocamera del tuo smartphone verso il Pass per la convalida istantanea
-            </p>
           </div>
         </div>
 
         {/* Toolbar Buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {isScanning && (
             <>
               {hasTorch && (
@@ -355,7 +352,7 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
                   type="button"
                   onClick={handleToggleTorch}
                   title={torchOn ? "Spegni Torcia" : "Accendi Torcia Flash"}
-                  className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                  className={`p-2 rounded-lg border transition-all cursor-pointer ${
                     torchOn 
                       ? 'bg-amber-400 text-amber-950 border-amber-300 shadow-md' 
                       : 'bg-white/10 hover:bg-white/20 text-white border-white/20'
@@ -369,8 +366,8 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
                 <button
                   type="button"
                   onClick={handleToggleFlipCamera}
-                  title="Cambia fotocamera (posteriore/anteriore)"
-                  className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer"
+                  title="Cambia fotocamera"
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer"
                 >
                   <FlipHorizontal className="w-4 h-4" />
                 </button>
@@ -381,14 +378,8 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
           {/* Toggle Camera Active State */}
           <button
             type="button"
-            onClick={() => {
-              if (isOpen) {
-                setIsOpen(false);
-              } else {
-                setIsOpen(true);
-              }
-            }}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+            onClick={() => setIsOpen(!isOpen)}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
               isOpen 
                 ? 'bg-white/15 hover:bg-white/25 text-white border-white/20' 
                 : 'bg-[#C4AF56] hover:bg-[#b09d4c] text-[#16391C] border-[#C4AF56]'
@@ -397,12 +388,12 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
             {isOpen ? (
               <>
                 <CameraOff className="w-3.5 h-3.5" />
-                Pausa Fotocamera
+                <span className="hidden sm:inline">Pausa</span>
               </>
             ) : (
               <>
                 <Camera className="w-3.5 h-3.5" />
-                Attiva Fotocamera
+                <span>Attiva</span>
               </>
             )}
           </button>
@@ -556,43 +547,36 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
           </div>
         )}
 
-        {/* Alternative Scan Options: File upload (photo/gallery) + Open new window */}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/10 text-xs">
-          <div className="flex items-center gap-2">
-            <label 
-              htmlFor="qr-file-input"
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-[#F7F4EC] border border-white/15 transition-colors cursor-pointer"
-              title="Carica un'immagine, uno screenshot o scatta una foto del QR"
+        {/* Alternative Scan Options */}
+        <div className="mt-3 flex items-center justify-between gap-2 pt-2.5 border-t border-white/10 text-xs">
+          <label 
+            htmlFor="qr-file-input"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-[#F7F4EC] text-xs font-medium border border-white/15 transition-colors cursor-pointer"
+            title="Carica foto o screenshot del QR"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#C4AF56]" />
+            <span>Carica Foto / File QR</span>
+            <input
+              id="qr-file-input"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileScan}
+            />
+          </label>
+
+          {inIframe && (
+            <button
+              type="button"
+              onClick={handleOpenNewWindow}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-[#CAC8AA] hover:text-white border border-white/10 text-xs font-medium transition-colors cursor-pointer"
+              title="Apri a schermo intero"
             >
-              <Upload className="w-3.5 h-3.5 text-[#C4AF56]" />
-              <span>Scansiona da Foto o Rullino</span>
-              <input
-                id="qr-file-input"
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleFileScan}
-              />
-            </label>
-
-            {inIframe && (
-              <button
-                type="button"
-                onClick={handleOpenNewWindow}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[#CAC8AA] hover:text-white border border-white/10 transition-colors cursor-pointer"
-                title="Apri l'app a schermo intero nel browser del telefono"
-              >
-                <Maximize2 className="w-3.5 h-3.5 text-[#C4AF56]" />
-                <span>Schermo Intero</span>
-              </button>
-            )}
-          </div>
-
-          <div className="text-[11px] text-[#CAC8AA]/80 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Riconoscimento automatico e feedback sonoro attivo</span>
-          </div>
+              <Maximize2 className="w-3.5 h-3.5 text-[#C4AF56]" />
+              <span>Nuova Scheda</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

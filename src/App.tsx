@@ -68,9 +68,9 @@ export default function App() {
             
             // Sync activeAttendee if present
             setActiveAttendee(prev => {
-              if (!prev) return remoteAttendees[0];
+              if (!prev) return null;
               const match = remoteAttendees.find(a => a.id === prev.id);
-              return match || remoteAttendees[0];
+              return match || null;
             });
           }
         },
@@ -133,7 +133,7 @@ export default function App() {
     } catch {
       // fallback
     }
-    return INITIAL_ATTENDEES[0];
+    return null;
   });
 
   // Current view tab: 'register' | 'pass' | 'desk'
@@ -142,9 +142,10 @@ export default function App() {
   // Modal for viewing any attendee badge from desk
   const [selectedModalAttendee, setSelectedModalAttendee] = useState<Attendee | null>(null);
 
-  // Ticket lookup state for "Pass & QR" view when searching
+  // Ticket lookup state for "Trova il mio pass" view
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupMessage, setLookupMessage] = useState('');
+  const [matchingAttendees, setMatchingAttendees] = useState<Attendee[]>([]);
 
   // Persist attendees changes to localStorage
   useEffect(() => {
@@ -259,19 +260,24 @@ export default function App() {
     const q = lookupQuery.trim().toLowerCase();
     if (!q) return;
 
-    const found = attendees.find(a => 
+    const matches = attendees.filter(a => 
       a.id.toLowerCase() === q || 
       a.email.toLowerCase() === q ||
       a.lastName.toLowerCase() === q ||
-      a.coupleNames.toLowerCase().includes(q)
+      a.coupleNames.toLowerCase().includes(q) ||
+      `${a.coupleNames} ${a.lastName}`.toLowerCase().includes(q)
     );
 
-    if (found) {
-      setActiveAttendee(found);
+    if (matches.length === 1) {
+      setActiveAttendee(matches[0]);
+      setMatchingAttendees([]);
       setLookupMessage('');
-      setLookupQuery('');
+    } else if (matches.length > 1) {
+      setMatchingAttendees(matches);
+      setLookupMessage('');
     } else {
-      setLookupMessage('Nessun pass trovato con questi dati. Verifica l\'ID Pass, il cognome o l\'email.');
+      setMatchingAttendees([]);
+      setLookupMessage('Nessun pass trovato con questi dati.');
     }
   };
 
@@ -291,22 +297,29 @@ export default function App() {
         onExitStaffMode={handleExitStaffMode}
       />
 
-      {/* Staff Status Notification Banner (visible only when in staff mode) */}
-      {isStaffMode && (
-        <div className="no-print bg-[#16391C] text-[#F7F4EC] px-4 py-2 text-xs border-b border-[#A89236]/40">
+      {/* Staff Status Notification Banner (visible only when outside of Desk) */}
+      {isStaffMode && currentTab !== 'desk' && (
+        <div className="no-print bg-[#16391C] text-[#F7F4EC] px-3 sm:px-4 py-1.5 text-xs border-b border-[#A89236]/40 animate-fade-in">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#C4AF56]" />
-              <span className="font-semibold">Area Riservata Staff Attiva</span>
-              <span className="text-[#CAC8AA] hidden sm:inline">• Terminale di controllo ingressi e gestione visitatori</span>
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#C4AF56]" />
+              <span className="font-semibold text-[11px] sm:text-xs">Modalità Staff attiva</span>
             </div>
-            <button
-              onClick={handleExitStaffMode}
-              className="flex items-center gap-1 text-[11px] font-bold text-[#C4AF56] hover:text-white underline cursor-pointer"
-            >
-              <Unlock className="w-3 h-3" />
-              Blocca Desk & Torna a Vista Ospite
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentTab('desk')}
+                className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-[#A89236] text-[#16391C] cursor-pointer hover:bg-[#bba33d] transition-colors"
+              >
+                Vai al Desk
+              </button>
+              <button
+                onClick={handleExitStaffMode}
+                className="flex items-center gap-1 text-[11px] font-medium text-[#C4AF56] hover:text-white cursor-pointer ml-1"
+              >
+                <Unlock className="w-3 h-3" />
+                Esci
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -321,84 +334,122 @@ export default function App() {
           />
         )}
 
-        {/* Tab 2: Guest Badge & QR Code View */}
+        {/* Tab 2: Trova il mio pass */}
         {currentTab === 'pass' && (
-          <div className="max-w-2xl mx-auto space-y-6">
-            {/* Quick Banner if pass was just generated */}
-            {activeAttendee && (
-              <div className="no-print bg-white border border-[#CAC8AA] rounded-2xl p-4 text-[#16391C] flex items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#16391C] text-[#C4AF56] flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm font-serif">Pass Sposi Generato con Successo!</h3>
-                    <p className="text-xs text-[#16391C]/75">
-                      Conserva questo QR code. Puoi scaricarlo in formato PDF per l'accesso gratuito al salone il 10 e 11 Ottobre.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Display Active Badge */}
+          <div className="max-w-xl mx-auto space-y-5">
             {activeAttendee ? (
-              <BadgePassCard
-                attendee={activeAttendee}
-                eventInfo={eventInfo}
-                onNewRegistration={() => setCurrentTab('register')}
-              />
-            ) : (
-              <div className="bg-white rounded-3xl p-8 border border-[#CAC8AA] text-center space-y-4 shadow-sm">
-                <div className="w-16 h-16 bg-[#F7F4EC] text-[#16391C] rounded-2xl flex items-center justify-center mx-auto border border-[#CAC8AA]">
-                  <QrCode className="w-8 h-8 text-[#A89236]" />
+              <div className="space-y-3">
+                {/* Minimal Top Bar */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[#16391C]">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                    <span>Pass: {activeAttendee.coupleNames} {activeAttendee.lastName}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setActiveAttendee(null);
+                      setLookupQuery('');
+                      setLookupMessage('');
+                      setMatchingAttendees([]);
+                    }}
+                    className="text-xs text-[#A89236] hover:text-[#16391C] font-semibold underline cursor-pointer"
+                  >
+                    Cerca un altro pass
+                  </button>
                 </div>
-                <h3 className="text-xl font-bold text-[#16391C] font-serif">
-                  Nessun pass selezionato al momento
-                </h3>
-                <p className="text-sm text-[#16391C]/70 max-w-md mx-auto">
-                  Compila il modulo per registrare la coppia e ottenere subito il Pass d'Ingresso nominale, oppure recupera un pass precedentemente registrato.
+
+                {/* Display Active Badge */}
+                <BadgePassCard
+                  attendee={activeAttendee}
+                  eventInfo={eventInfo}
+                  onNewRegistration={() => setCurrentTab('register')}
+                />
+              </div>
+            ) : (
+              /* Minimal Search Form */
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#CAC8AA]/70 shadow-xs text-center">
+                <div className="w-12 h-12 bg-[#F7F4EC] text-[#16391C] rounded-2xl flex items-center justify-center mx-auto border border-[#CAC8AA] mb-3">
+                  <Search className="w-5 h-5 text-[#A89236]" />
+                </div>
+                <h2 className="text-xl font-bold text-[#16391C] font-serif">
+                  Trova il tuo Pass
+                </h2>
+                <p className="text-xs text-[#16391C]/70 mt-1 mb-5">
+                  Inserisci email o cognome
                 </p>
-                <div className="pt-2">
+
+                <form onSubmit={handleLookup} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Email o cognome..."
+                      value={lookupQuery}
+                      onChange={e => {
+                        setLookupQuery(e.target.value);
+                        if (lookupMessage) setLookupMessage('');
+                        if (matchingAttendees.length) setMatchingAttendees([]);
+                      }}
+                      className="w-full px-4 py-2.5 bg-[#F7F4EC]/40 rounded-xl text-xs sm:text-sm border border-[#CAC8AA] text-[#16391C] placeholder-[#99A99C] focus:outline-none focus:border-[#16391C] transition-all"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                  >
+                    Cerca
+                  </button>
+                </form>
+
+                {lookupMessage && (
+                  <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center justify-between">
+                    <span>{lookupMessage}</span>
+                    <button
+                      onClick={() => setCurrentTab('register')}
+                      className="font-bold underline ml-2 cursor-pointer"
+                    >
+                      Registrati ora
+                    </button>
+                  </div>
+                )}
+
+                {/* Multiple Matches List */}
+                {matchingAttendees.length > 1 && (
+                  <div className="mt-4 space-y-2 text-left">
+                    <p className="text-[11px] font-semibold text-[#99A99C] uppercase tracking-wider">
+                      Seleziona il tuo pass:
+                    </p>
+                    {matchingAttendees.map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveAttendee(m);
+                          setMatchingAttendees([]);
+                          setLookupMessage('');
+                        }}
+                        className="w-full p-3 bg-[#F7F4EC]/60 hover:bg-[#F7F4EC] rounded-xl border border-[#CAC8AA] flex items-center justify-between text-xs transition-all cursor-pointer text-left"
+                      >
+                        <div>
+                          <span className="font-bold text-[#16391C] block">{m.coupleNames} {m.lastName}</span>
+                          <span className="text-[11px] text-[#99A99C]">ID: {m.id} • Data: {m.weddingDate}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-[#A89236]">Apri Pass →</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-6 pt-4 border-t border-[#CAC8AA]/50 text-xs text-[#16391C]/70">
+                  Non sei ancora registrato?{' '}
                   <button
                     onClick={() => setCurrentTab('register')}
-                    className="px-6 py-3 bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs inline-flex items-center gap-2 cursor-pointer"
+                    className="font-semibold text-[#16391C] underline hover:text-[#A89236] cursor-pointer"
                   >
-                    Vai alla Registrazione Sposi
-                    <ArrowRight className="w-4 h-4 text-[#A89236]" />
+                    Registrati gratis
                   </button>
                 </div>
               </div>
             )}
-
-            {/* Lookup existing pass form */}
-            <div className="no-print bg-white rounded-3xl p-6 border border-[#CAC8AA] shadow-xs mt-6">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#16391C] mb-2 flex items-center gap-1.5">
-                <Search className="w-3.5 h-3.5 text-[#A89236]" />
-                Hai già effettuato la registrazione? Recupera il tuo Pass
-              </h4>
-              <form onSubmit={handleLookup} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Inserisci ID Pass (es. SS-25-K8X92), Cognome o Email..."
-                  value={lookupQuery}
-                  onChange={e => {
-                    setLookupQuery(e.target.value);
-                    if (lookupMessage) setLookupMessage('');
-                  }}
-                  className="flex-1 px-3.5 py-2.5 bg-[#F7F4EC]/60 rounded-xl text-xs sm:text-sm border border-[#CAC8AA] text-[#16391C] placeholder-[#99A99C] focus:outline-none focus:border-[#16391C]"
-                />
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#16391C] hover:bg-[#1f4a25] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  Cerca Pass
-                </button>
-              </form>
-              {lookupMessage && (
-                <p className="text-xs text-rose-600 mt-2 font-medium">{lookupMessage}</p>
-              )}
-            </div>
           </div>
         )}
 
@@ -411,6 +462,7 @@ export default function App() {
             onDeleteAttendee={handleDeleteAttendee}
             onAddAttendee={handleAddManualAttendee}
             onViewBadge={(attendee) => setSelectedModalAttendee(attendee)}
+            onExitStaff={handleExitStaffMode}
           />
         )}
       </main>
@@ -434,11 +486,13 @@ export default function App() {
       <footer className="no-print mt-auto border-t border-[#CAC8AA]/60 bg-white/80 py-8 text-center text-xs text-[#16391C]/80">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <SamarateLogo size="sm" showSubline={false} />
+            <SamarateLogo size="sm" />
             <div className="text-left pl-3 border-l border-[#CAC8AA]/70">
-              <span className="font-bold text-[#16391C]">{eventInfo.name}</span>
+              <span className="block text-xs font-semibold text-[#16391C]">
+                {eventInfo.dates}
+              </span>
               <span className="block text-[11px] text-[#99A99C]">
-                {eventInfo.dates} • {eventInfo.venue}, {eventInfo.city}
+                {eventInfo.venue} • {eventInfo.city}
               </span>
             </div>
           </div>
@@ -449,25 +503,33 @@ export default function App() {
               Pass d'ingresso gratuito con QR Code nominale
             </div>
 
-            {/* Discrete Footer Staff Access link (Hidden in Standalone Public Mode) */}
+            {/* Discrete Footer Staff Link */}
             {!isStandaloneMode && (
-              <div className="sm:pl-4 sm:border-l border-[#CAC8AA]/60">
+              <div className="sm:pl-4 sm:border-l border-[#CAC8AA]/40">
                 {isStaffMode ? (
-                  <button
-                    onClick={handleExitStaffMode}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-semibold hover:bg-amber-100 transition-colors cursor-pointer"
-                  >
-                    <Unlock className="w-3.5 h-3.5 text-amber-700" />
-                    Staff Connesso (Esci)
-                  </button>
+                  <div className="flex items-center gap-2 text-[10px] text-[#16391C]/50">
+                    <button
+                      onClick={() => setCurrentTab('desk')}
+                      className="hover:text-[#16391C] underline font-medium cursor-pointer"
+                    >
+                      Desk
+                    </button>
+                    <span>•</span>
+                    <button
+                      onClick={handleExitStaffMode}
+                      className="hover:text-rose-700 cursor-pointer"
+                    >
+                      Esci
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={() => setShowPinModal(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[#16391C]/70 hover:text-[#16391C] hover:bg-[#F7F4EC] border border-[#CAC8AA]/60 transition-colors cursor-pointer"
-                    title="Accesso per gli organizzatori al check-in"
+                    className="text-[#16391C]/25 hover:text-[#16391C]/60 transition-colors cursor-pointer text-[10px] flex items-center gap-1 tracking-tight"
+                    title="Staff"
                   >
-                    <Lock className="w-3 h-3 text-[#A89236]" />
-                    Area Staff Organizzatori
+                    <Lock className="w-2.5 h-2.5 opacity-25" />
+                    <span>Desk</span>
                   </button>
                 )}
               </div>
