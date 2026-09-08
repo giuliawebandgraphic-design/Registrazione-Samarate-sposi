@@ -7,7 +7,9 @@ import {
   MapPin, 
   Lock,
   Unlock,
-  ShieldAlert
+  ShieldAlert,
+  Cloud,
+  CheckCircle2
 } from 'lucide-react';
 import { FairEventInfo } from '../types';
 import { SamarateLogo } from './SamarateLogo';
@@ -20,6 +22,7 @@ interface HeaderProps {
   totalAttendeesCount: number;
   isStaffMode: boolean;
   isStandalone?: boolean;
+  isCloudConnected?: boolean;
   onOpenStaffLogin: () => void;
   onExitStaffMode: () => void;
 }
@@ -32,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   totalAttendeesCount,
   isStaffMode,
   isStandalone = false,
+  isCloudConnected = true,
   onOpenStaffLogin,
   onExitStaffMode,
 }) => {
@@ -117,6 +121,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
             </nav>
+
+            {/* Cloud Sync Status Indicator */}
+            <div 
+              className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/70 border border-[#CAC8AA]/80 text-[11px] font-medium text-[#16391C]"
+              title={isCloudConnected ? "Database sincronizzato in tempo reale su tutti i dispositivi" : "Connessione al database in corso..."}
+            >
+              <Cloud className="w-3.5 h-3.5 text-[#A89236]" />
+              <span className="hidden xl:inline">Database Live</span>
+              <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+            </div>
 
             {/* Staff Mode Access / Toggle Button (Hidden in Standalone Public Mode) */}
             {!isStandalone && (

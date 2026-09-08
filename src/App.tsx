@@ -9,6 +9,13 @@ import { BadgeModal } from './components/BadgeModal';
 import { SamarateLogo } from './components/SamarateLogo';
 import { AdminPinModal } from './components/AdminPinModal';
 import { 
+  testConnection, 
+  subscribeToAttendees, 
+  saveAttendeeToCloud, 
+  deleteAttendeeFromCloud, 
+  seedInitialAttendeesIfEmpty 
+} from './lib/firebase';
+import { 
   QrCode, 
   Search, 
   CheckCircle2, 
@@ -25,6 +32,7 @@ const STAFF_PIN = '1011'; // Date della fiera: 10 e 11 Ottobre
 
 export default function App() {
   const [eventInfo] = useState<FairEventInfo>(DEFAULT_EVENT);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
   
   // Initialize attendees from localStorage or initial demo couples
   const [attendees, setAttendees] = useState<Attendee[]>(() => {
@@ -38,6 +46,49 @@ export default function App() {
     }
     return INITIAL_ATTENDEES;
   });
+
+  // Real-time Cloud Synchronization with Firebase Firestore
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    async function initCloudSync() {
+      // 1. Validate connection to Firestore
+      const isOnline = await testConnection();
+      setIsCloudConnected(isOnline);
+
+      // 2. Ensure initial seed exists in database
+      await seedInitialAttendeesIfEmpty(INITIAL_ATTENDEES);
+
+      // 3. Real-time synchronization stream across all devices
+      unsubscribe = subscribeToAttendees(
+        (remoteAttendees) => {
+          setIsCloudConnected(true);
+          if (remoteAttendees.length > 0) {
+            setAttendees(remoteAttendees);
+            
+            // Sync activeAttendee if present
+            setActiveAttendee(prev => {
+              if (!prev) return remoteAttendees[0];
+              const match = remoteAttendees.find(a => a.id === prev.id);
+              return match || remoteAttendees[0];
+            });
+          }
+        },
+        (error) => {
+          console.warn('Real-time sync alert, local mode maintained:', error);
+          setIsCloudConnected(false);
+        }
+      );
+    }
+
+    initCloudSync();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
 
   // Standalone external registration mode: true if URL has ?mode=register or ?view=register
   const [isStandaloneMode] = useState<boolean>(() => {
@@ -105,7 +156,7 @@ export default function App() {
   }, [attendees]);
 
   // Handle successful registration (Guests)
-  const handleRegistrationSuccess = (newAttendee: Attendee) => {
+  const handleRegistrationSuccess = async (newAttendee: Attendee) => {
     setAttendees(prev => [newAttendee, ...prev]);
     setActiveAttendee(newAttendee);
     try {
@@ -114,10 +165,17 @@ export default function App() {
       // safe
     }
     setCurrentTab('pass');
+
+    // Real-time Cloud Save
+    try {
+      await saveAttendeeToCloud(newAttendee);
+    } catch (err) {
+      console.warn('Could not save registration to cloud:', err);
+    }
   };
 
-  // Update existing attendee (e.g. check-in status)
-  const handleUpdateAttendee = (updated: Attendee) => {
+  // Update existing attendee (e.g. check-in status from scanner or button)
+  const handleUpdateAttendee = async (updated: Attendee) => {
     setAttendees(prev => prev.map(a => a.id === updated.id ? updated : a));
     if (activeAttendee && activeAttendee.id === updated.id) {
       setActiveAttendee(updated);
@@ -125,19 +183,40 @@ export default function App() {
     if (selectedModalAttendee && selectedModalAttendee.id === updated.id) {
       setSelectedModalAttendee(updated);
     }
+
+    // Real-time Cloud Sync
+    try {
+      await saveAttendeeToCloud(updated);
+    } catch (err) {
+      console.warn('Could not update attendee in cloud:', err);
+    }
   };
 
   // Delete attendee
-  const handleDeleteAttendee = (id: string) => {
+  const handleDeleteAttendee = async (id: string) => {
     setAttendees(prev => prev.filter(a => a.id !== id));
     if (activeAttendee && activeAttendee.id === id) {
       setActiveAttendee(null);
     }
+
+    // Real-time Cloud Sync
+    try {
+      await deleteAttendeeFromCloud(id);
+    } catch (err) {
+      console.warn('Could not delete attendee from cloud:', err);
+    }
   };
 
   // Add manual attendee
-  const handleAddManualAttendee = (newAttendee: Attendee) => {
+  const handleAddManualAttendee = async (newAttendee: Attendee) => {
     setAttendees(prev => [newAttendee, ...prev]);
+
+    // Real-time Cloud Sync
+    try {
+      await saveAttendeeToCloud(newAttendee);
+    } catch (err) {
+      console.warn('Could not save manual attendee to cloud:', err);
+    }
   };
 
   // Staff Authentication Success
@@ -207,6 +286,7 @@ export default function App() {
         totalAttendeesCount={attendees.length}
         isStaffMode={isStaffMode}
         isStandalone={isStandaloneMode}
+        isCloudConnected={isCloudConnected}
         onOpenStaffLogin={() => setShowPinModal(true)}
         onExitStaffMode={handleExitStaffMode}
       />

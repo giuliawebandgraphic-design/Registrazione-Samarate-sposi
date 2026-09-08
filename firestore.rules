@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health check endpoint for connection verification
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 2 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidAttendee(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.coupleNames is string && data.coupleNames.size() > 0 && data.coupleNames.size() <= 200 &&
+             data.lastName is string && data.lastName.size() > 0 && data.lastName.size() <= 200 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 200 &&
+             data.weddingDate is string && data.weddingDate.size() <= 100 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.checkedIn is bool &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('guestCount' in data) || data.guestCount == null || data.guestCount is int || data.guestCount is number);
+    }
+
+    // Synchronized Attendees Collection
+    match /attendees/{attendeeId} {
+      allow get, list: if true;
+      allow create: if isValidId(attendeeId) && isValidAttendee(incoming());
+      allow update: if isValidId(attendeeId) && isValidAttendee(incoming());
+      allow delete: if isValidId(attendeeId);
+    }
+
+    // Shared Settings (e.g. customized logo across desk devices)
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(settingId);
+    }
+  }
+}

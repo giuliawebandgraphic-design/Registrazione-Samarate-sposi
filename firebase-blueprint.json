@@ -1,0 +1,51 @@
+{
+  "entities": {
+    "Attendee": {
+      "title": "Attendee",
+      "description": "A couple or visitor registration record for the Samarate Sposi wedding fair",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique registration ticket identifier", "maxLength": 64 },
+        "coupleNames": { "type": "string", "description": "First names of the couple", "maxLength": 200 },
+        "lastName": { "type": "string", "description": "Family surname", "maxLength": 200 },
+        "email": { "type": "string", "format": "email", "description": "Contact email address", "maxLength": 200 },
+        "phone": { "type": "string", "description": "Contact phone number", "maxLength": 50 },
+        "weddingDate": { "type": "string", "description": "Estimated or planned wedding date", "maxLength": 100 },
+        "weddingDateStatus": { "type": "string", "enum": ["fixed", "tbd"], "description": "Whether wedding date is fixed or tbd" },
+        "acquisitionChannel": { "type": "string", "description": "Marketing channel where they learned about the fair", "maxLength": 100 },
+        "acquisitionChannelOther": { "type": "string", "description": "Custom acquisition channel note", "maxLength": 200 },
+        "guestCount": { "type": "number", "description": "Number of participants" },
+        "category": { "type": "string", "description": "Role category (e.g. coppia, accompagnatore)", "maxLength": 50 },
+        "privacyConsent": { "type": "boolean", "description": "Privacy policy consent" },
+        "marketingConsent": { "type": "boolean", "description": "Marketing newsletter consent" },
+        "registrationDate": { "type": "string", "description": "Formatted local registration timestamp", "maxLength": 100 },
+        "qrPayload": { "type": "string", "description": "Embedded QR code verification string", "maxLength": 2000 },
+        "checkedIn": { "type": "boolean", "description": "Fair entry check-in status" },
+        "checkInTime": { "type": "string", "description": "Timestamp when QR ticket was validated at entrance", "maxLength": 100 },
+        "gateScanned": { "type": "string", "description": "Reception gate or desk identifier", "maxLength": 100 },
+        "notes": { "type": "string", "description": "Staff reception notes", "maxLength": 1000 }
+      },
+      "required": ["id", "coupleNames", "lastName", "email", "weddingDate", "category", "checkedIn"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Global event configuration and shared settings",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "maxLength": 100 },
+        "value": { "type": "string", "maxLength": 500000 }
+      },
+      "required": ["key"]
+    }
+  },
+  "firestore": {
+    "/attendees/{attendeeId}": {
+      "schema": "Attendee",
+      "description": "Real-time synchronized registrations for all Samarate Sposi visitors"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Shared application settings (custom logo, etc.)"
+    }
+  }
+}

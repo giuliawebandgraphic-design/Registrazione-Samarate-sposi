@@ -41,6 +41,7 @@ import { copyToClipboard } from '../utils/clipboard';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShareRegistrationModal } from './ShareRegistrationModal';
 import { CameraQrScanner } from './CameraQrScanner';
+import { saveCustomLogoToCloud } from '../lib/firebase';
 
 interface OrganizerDeskProps {
   attendees: Attendee[];
@@ -377,6 +378,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
       if (base64) {
         try {
           localStorage.setItem('samarate_sposi_custom_logo', base64);
+          saveCustomLogoToCloud(base64);
           window.dispatchEvent(new Event('samarate_logo_updated'));
           setHasCustomLogo(true);
           playFeedbackSound('success');
@@ -391,6 +393,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   const handleResetLogo = () => {
     try {
       localStorage.removeItem('samarate_sposi_custom_logo');
+      saveCustomLogoToCloud(null);
       window.dispatchEvent(new Event('samarate_logo_updated'));
       setHasCustomLogo(false);
       playFeedbackSound('success');

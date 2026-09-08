@@ -141,23 +141,39 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
       }
 
       // Full sensor scanning without strict qrbox cropping so any QR in the frame is detected instantly
-      await scanner.start(
-        cameraConfig,
-        {
-          fps: 15,
-          videoConstraints: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+      try {
+        await scanner.start(
+          cameraConfig,
+          {
+            fps: 15,
+            videoConstraints: {
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            }
+          },
+          (decodedText) => {
+            handleDecoded(decodedText);
+          },
+          () => {
+            // Frame errors are continuous and normal during search
           }
-        },
-        (decodedText) => {
-          handleDecoded(decodedText);
-        },
-        () => {
-          // Frame errors are continuous and normal during search
+        );
+      } catch (firstErr: any) {
+        // Fallback for laptops/desktops without environment camera
+        const errStr = String(firstErr?.message || firstErr || '');
+        if (firstErr?.name === 'OverconstrainedError' || errStr.includes('Overconstrained') || errStr.includes('constraint')) {
+          console.warn('Environment camera overconstrained, falling back to any available camera:', firstErr);
+          await scanner.start(
+            {},
+            { fps: 15 },
+            (decodedText) => handleDecoded(decodedText),
+            () => {}
+          );
+        } else {
+          throw firstErr;
         }
-      );
+      }
 
       setIsScanning(true);
 
@@ -169,30 +185,56 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
         setHasTorch(false);
       }
     } catch (err: any) {
-      console.error('Camera start error:', err);
       setIsScanning(false);
 
       const errName = err?.name || '';
       const errMsg = String(err?.message || err || '');
+      const isPermissionIssue = 
+        errName === 'NotAllowedError' || 
+        errName === 'PermissionDeniedError' ||
+        errMsg.toLowerCase().includes('permission') || 
+        errMsg.toLowerCase().includes('denied') ||
+        errMsg.toLowerCase().includes('not allowed');
 
-      if (errName === 'NotAllowedError' || errMsg.includes('Permission') || errMsg.includes('denied')) {
+      if (isPermissionIssue) {
+        console.warn('Camera access not granted or restricted by browser/iframe:', err);
         setIsPermissionDenied(true);
         if (inIframe) {
           setIsIframeBlocked(true);
         }
-        setErrorMsg("Accesso alla fotocamera negato. Consenti l'autorizzazione nelle impostazioni del browser.");
+        setErrorMsg("Accesso alla fotocamera non autorizzato. Clicca su 'Consenti Fotocamera' oppure apri in una nuova scheda.");
       } else if (errName === 'NotFoundError' || errMsg.includes('NotFoundError')) {
+        console.warn('No camera found on device:', err);
         setErrorMsg("Nessuna fotocamera rilevata sul dispositivo.");
       } else if (errName === 'NotReadableError' || errMsg.includes('in use')) {
+        console.warn('Camera in use by another app:', err);
         setErrorMsg("La fotocamera è già in uso da un'altra applicazione. Chiudi le altre app e riprova.");
       } else {
+        console.warn('Camera start issue:', err);
         if (inIframe) {
           setIsIframeBlocked(true);
         }
-        setErrorMsg(`Impossibile avviare la fotocamera (${errMsg || 'Errore sconosciuto'}).`);
+        setErrorMsg(`Impossibile avviare la fotocamera (${errMsg || 'Verifica i permessi del browser'}).`);
       }
     }
   }, [handleDecoded, inIframe, stopScanner]);
+
+  // Direct user-gesture permission request
+  const handleRequestPermission = async () => {
+    setErrorMsg(null);
+    setIsPermissionDenied(false);
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop());
+      }
+      await startScanner();
+    } catch (err: any) {
+      console.warn('Permission re-request failed:', err);
+      setIsPermissionDenied(true);
+      setErrorMsg("Autorizzazione negata dal browser. Puoi aprire in nuova scheda o scansionare da foto.");
+    }
+  };
 
   // Flip camera between front and back
   const handleToggleFlipCamera = async () => {
@@ -249,7 +291,7 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
         alert("Nessun QR Code valido rilevato in questa immagine. Assicurati che il codice sia ben visibile e a fuoco.");
       }
     } catch (err) {
-      console.error('File scan error:', err);
+      console.warn('File scan info:', err);
       playFeedbackSound('error');
       alert("Nessun QR Code trovato nell'immagine caricata.");
     } finally {
@@ -439,39 +481,60 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
 
             {/* Error or Permission Blocked Overlay */}
             {errorMsg && (
-              <div className="absolute inset-0 bg-neutral-900/95 p-6 flex flex-col items-center justify-center text-center gap-3.5 z-20">
-                <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6" />
+              <div className="absolute inset-0 bg-neutral-950/95 p-5 sm:p-6 flex flex-col items-center justify-center text-center gap-3 z-20 overflow-y-auto">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                  isPermissionDenied 
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+                    : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                }`}>
+                  {isPermissionDenied ? <Camera className="w-6 h-6" /> : <AlertTriangle className="w-6 h-6" />}
                 </div>
                 <div>
                   <h4 className="font-bold text-white text-base font-serif">
-                    Accesso Fotocamera Limitato
+                    {isPermissionDenied ? "Permesso Fotocamera Richiesto" : "Fotocamera non disponibile"}
                   </h4>
-                  <p className="text-xs text-[#CAC8AA] mt-1.5 max-w-xs leading-relaxed">
+                  <p className="text-xs text-[#CAC8AA] mt-1 max-w-xs leading-relaxed">
                     {errorMsg}
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-2 mt-2 w-full max-w-xs">
+                <div className="flex flex-col gap-2 mt-1 w-full max-w-xs">
+                  {/* Direct button to prompt permission on user click */}
                   <button
                     type="button"
-                    onClick={() => startScanner()}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    onClick={handleRequestPermission}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#C4AF56] hover:bg-[#b09d4c] text-[#16391C] text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Riprova Connessione
+                    <Camera className="w-3.5 h-3.5" />
+                    Consenti e Avvia Fotocamera
                   </button>
 
-                  {isIframeBlocked && (
-                    <button
-                      type="button"
-                      onClick={handleOpenNewWindow}
-                      className="w-full py-2.5 px-4 rounded-xl bg-[#C4AF56] hover:bg-[#b09d4c] text-[#16391C] text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Apri in Nuova Scheda
-                    </button>
-                  )}
+                  {/* Open in full window (bypasses iframe restrictions) */}
+                  <button
+                    type="button"
+                    onClick={handleOpenNewWindow}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-[#C4AF56]" />
+                    Apri a Schermo Intero (Nuova Scheda)
+                  </button>
+
+                  {/* Immediate Photo Scan Fallback */}
+                  <label 
+                    htmlFor="qr-file-input-fallback"
+                    className="w-full py-2 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-[#CAC8AA] hover:text-white text-xs font-medium border border-white/10 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[#C4AF56]" />
+                    <span>Scansiona da Foto o Screenshot</span>
+                    <input
+                      id="qr-file-input-fallback"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleFileScan}
+                    />
+                  </label>
                 </div>
               </div>
             )}

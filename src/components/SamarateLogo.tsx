@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import defaultLogoImg from '../assets/images/samarate_sposi_logo_1788813094721.jpg';
+import { subscribeToCustomLogo } from '../lib/firebase';
 
 interface SamarateLogoProps {
   className?: string;
@@ -32,6 +33,15 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
   const textColor = isLight ? 'text-[#F7F4EC]' : 'text-[#16391C]';
 
   useEffect(() => {
+    // 1. Cloud Firestore real-time logo synchronization
+    const unsubscribeCloud = subscribeToCustomLogo((cloudLogo) => {
+      if (cloudLogo) {
+        setCurrentLogoSrc(cloudLogo);
+        setImageError(false);
+      }
+    });
+
+    // 2. Local window event listener
     const handleLogoUpdate = () => {
       try {
         const saved = localStorage.getItem('samarate_sposi_custom_logo');
@@ -45,7 +55,10 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
     };
 
     window.addEventListener('samarate_logo_updated', handleLogoUpdate);
-    return () => window.removeEventListener('samarate_logo_updated', handleLogoUpdate);
+    return () => {
+      unsubscribeCloud();
+      window.removeEventListener('samarate_logo_updated', handleLogoUpdate);
+    };
   }, []);
 
   const sizeConfig = {
