@@ -34,6 +34,7 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
   const [torchOn, setTorchOn] = useState<boolean>(false);
   const [hasTorch, setHasTorch] = useState<boolean>(false);
   const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+  const [isScanSuccessFlash, setIsScanSuccessFlash] = useState<boolean>(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const lastScanTimeRef = useRef<number>(0);
@@ -59,21 +60,23 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
 
   const handleDecoded = useCallback((decodedText: string) => {
     const now = Date.now();
-    // Debounce 2.2s for same code, 1.0s for different code
-    if (decodedText === lastScannedCode && now - lastScanTimeRef.current < 2200) {
+    // Debounce 2.0s for identical code, 0.8s for different code
+    if (decodedText === lastScannedCode && now - lastScanTimeRef.current < 2000) {
       return;
     }
-    if (now - lastScanTimeRef.current < 900) {
+    if (now - lastScanTimeRef.current < 800) {
       return;
     }
 
     lastScanTimeRef.current = now;
     setLastScannedCode(decodedText);
+    setIsScanSuccessFlash(true);
+    setTimeout(() => setIsScanSuccessFlash(false), 550);
 
     // Haptic vibration feedback on mobile
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
       try {
-        navigator.vibrate([70, 40, 70]);
+        navigator.vibrate([80, 40, 80]);
       } catch {
         // safe
       }
@@ -388,6 +391,18 @@ export const CameraQrScanner: React.FC<CameraQrScannerProps> = ({
                 >
                   Riprova
                 </button>
+              </div>
+            )}
+
+            {/* Instant Green Scan Success Flash Animation */}
+            {isScanSuccessFlash && (
+              <div className="absolute inset-0 bg-emerald-500/40 backdrop-blur-xs flex flex-col items-center justify-center z-40 pointer-events-none animate-fade-in">
+                <div className="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-2xl scale-110">
+                  <CheckCircle2 className="w-10 h-10" />
+                </div>
+                <span className="text-white text-xs font-bold mt-2 px-3 py-1 rounded-full bg-black/60 shadow-xs">
+                  Codice Rilevato!
+                </span>
               </div>
             )}
 

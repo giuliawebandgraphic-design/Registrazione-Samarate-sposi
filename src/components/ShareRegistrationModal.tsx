@@ -11,7 +11,6 @@ import {
   Globe, 
   Smartphone, 
   Sparkles,
-  Printer,
   X,
   Instagram,
   MessageCircle,
