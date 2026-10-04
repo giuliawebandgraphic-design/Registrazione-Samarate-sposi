@@ -21,7 +21,6 @@ import {
   Sparkles,
   Phone,
   Mail,
-  Image as ImageIcon,
   Link2,
   Share2,
   Copy,
@@ -36,13 +35,18 @@ import {
   ACQUISITION_CHANNELS, 
   AcquisitionChannel 
 } from '../types';
-import { exportAttendeesToCSV, generateTicketId, formatItalianDate } from '../utils/qrUtils';
+import { 
+  exportAttendeesToCSV, 
+  generateTicketId, 
+  formatItalianDate, 
+  formatItalianDateTime, 
+  splitDateTime 
+} from '../utils/qrUtils';
 import { playFeedbackSound } from '../utils/audioFeedback';
 import { copyToClipboard } from '../utils/clipboard';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShareRegistrationModal } from './ShareRegistrationModal';
 import { CameraQrScanner } from './CameraQrScanner';
-import { saveCustomLogoToCloud } from '../lib/firebase';
 
 interface OrganizerDeskProps {
   attendees: Attendee[];
@@ -89,13 +93,6 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedQrModalAttendee, setSelectedQrModalAttendee] = useState<Attendee | null>(null);
   const [copiedModalId, setCopiedModalId] = useState(false);
-  const [hasCustomLogo, setHasCustomLogo] = useState<boolean>(() => {
-    try {
-      return !!localStorage.getItem('samarate_sposi_custom_logo');
-    } catch {
-      return false;
-    }
-  });
 
   // Stats calculation
   const totalCount = attendees.length;
@@ -118,6 +115,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
       a.lastName.toLowerCase().includes(q) ||
       a.email.toLowerCase().includes(q) ||
       (a.phone && a.phone.includes(q)) ||
+      (a.registrationDate && a.registrationDate.toLowerCase().includes(q)) ||
       a.id.toLowerCase().includes(q);
 
     const matchesChannel = channelFilter === 'all' || a.acquisitionChannel === channelFilter;
@@ -372,39 +370,6 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
     playFeedbackSound('success');
   };
 
-  const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const base64 = uploadEvent.target?.result as string;
-      if (base64) {
-        try {
-          localStorage.setItem('samarate_sposi_custom_logo', base64);
-          saveCustomLogoToCloud(base64);
-          window.dispatchEvent(new Event('samarate_logo_updated'));
-          setHasCustomLogo(true);
-          playFeedbackSound('success');
-        } catch {
-          // safe
-        }
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleResetLogo = () => {
-    try {
-      localStorage.removeItem('samarate_sposi_custom_logo');
-      saveCustomLogoToCloud(null);
-      window.dispatchEvent(new Event('samarate_logo_updated'));
-      setHasCustomLogo(false);
-      playFeedbackSound('success');
-    } catch {
-      // safe
-    }
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Top Header Bar - Mobile-First & Sleek */}
@@ -458,32 +423,6 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                 {attendees.length}
               </span>
             </button>
-
-            <label 
-              htmlFor="logo-file-input"
-              className="p-1.5 sm:p-2 rounded-xl bg-[#F7F4EC]/60 hover:bg-[#F7F4EC] text-[#16391C] border border-[#CAC8AA]/70 shadow-2xs transition-colors cursor-pointer inline-flex items-center justify-center shrink-0"
-              title={hasCustomLogo ? "Cambia logo fiera" : "Carica logo fiera"}
-            >
-              <ImageIcon className="w-3.5 h-3.5 text-[#A89236]" />
-              <input
-                id="logo-file-input"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoFileUpload}
-              />
-            </label>
-
-            {hasCustomLogo && (
-              <button
-                type="button"
-                onClick={handleResetLogo}
-                title="Ripristina logo Samarate Sposi"
-                className="p-1.5 sm:p-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs transition-colors cursor-pointer shrink-0"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
           {onExitStaff && (
@@ -620,6 +559,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                       <div className="mt-2 pt-2 border-t border-black/10 text-xs flex flex-wrap gap-x-3 gap-y-1 font-medium">
                         <span>Coppia: <strong className="font-bold">{scanResult.attendee.coupleNames} {scanResult.attendee.lastName}</strong></span>
                         <span>Nozze: <strong>{formatItalianDate(scanResult.attendee.weddingDate)}</strong></span>
+                        <span>Registrato: <strong>{formatItalianDateTime(scanResult.attendee.registrationDate)}</strong></span>
                         <span>Ospiti: <strong className="px-1.5 py-0.2 rounded bg-black/10 font-bold">{scanResult.attendee.guestCount || 2}</strong></span>
                         <span>ID: <code className="font-mono bg-white px-1 py-0.2 rounded border border-black/10 font-bold">{scanResult.attendee.id}</code></span>
                       </div>
@@ -693,6 +633,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                         <div className="text-[10px] text-[#99A99C] flex items-center gap-2">
                           <span className="font-mono font-bold text-[#A89236]">{att.id}</span>
                           <span>{att.guestCount || 2} ospiti</span>
+                          <span>• Reg: {formatItalianDateTime(att.registrationDate)}</span>
                         </div>
                       </div>
                       <button
@@ -902,6 +843,12 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                         </div>
                       </div>
 
+                      {/* Registration Date & Time */}
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#16391C]/80 bg-[#F7F4EC] px-2.5 py-1 rounded-lg border border-[#CAC8AA]/60 w-fit">
+                        <Clock className="w-3 h-3 text-[#A89236] shrink-0" />
+                        <span>Iscrizione: <strong className="font-semibold text-[#16391C]">{formatItalianDateTime(attendee.registrationDate)}</strong></span>
+                      </div>
+
                       {/* Bottom: Channel badge & Action buttons */}
                       <div className="flex items-center justify-between pt-1 border-t border-black/5 text-xs">
                         <span className="text-[11px] text-slate-400 truncate max-w-[140px]">
@@ -953,6 +900,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                 <thead className="bg-[#F7F4EC] text-[#16391C] text-[11px] uppercase tracking-wider font-bold border-b border-[#CAC8AA]/60">
                   <tr>
                     <th className="py-3.5 px-4 sm:px-6">Pass ID & Sposi</th>
+                    <th className="py-3.5 px-4">Data Iscrizione</th>
                     <th className="py-3.5 px-4">Contatti</th>
                     <th className="py-3.5 px-4">Data Matrimonio</th>
                     <th className="py-3.5 px-4">Fonte Conoscenza</th>
@@ -963,7 +911,7 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                 <tbody className="divide-y divide-[#CAC8AA]/30 text-[#16391C]">
                   {filteredAttendees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
                         <Heart className="w-8 h-8 text-[#CAC8AA] mx-auto mb-2" />
                         Nessuna coppia trovata con i filtri selezionati.
                       </td>
@@ -1006,6 +954,27 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
                                 </div>
                               </div>
                             </div>
+                          </td>
+
+                          {/* Data e Ora Registrazione */}
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            {(() => {
+                              const { date, time } = splitDateTime(attendee.registrationDate);
+                              return (
+                                <div className="flex flex-col text-xs">
+                                  <span className="font-semibold flex items-center gap-1.5 text-[#16391C]">
+                                    <Calendar className="w-3.5 h-3.5 text-[#A89236] shrink-0" />
+                                    {date}
+                                  </span>
+                                  {time && (
+                                    <span className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 font-medium">
+                                      <Clock className="w-3.5 h-3.5 text-[#99A99C] shrink-0" />
+                                      ore {time}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Contacts */}
@@ -1364,6 +1333,11 @@ export const OrganizerDesk: React.FC<OrganizerDeskProps> = ({
             <p className="text-xs text-[#16391C]/70 mt-1">
               Data Nozze: <strong>{formatItalianDate(selectedQrModalAttendee.weddingDate)}</strong> • Ospiti: <strong>{selectedQrModalAttendee.guestCount || 2}</strong>
             </p>
+
+            <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-[#16391C]/80 bg-[#F7F4EC] px-3 py-1 rounded-full border border-[#CAC8AA]/60">
+              <Clock className="w-3 h-3 text-[#A89236]" />
+              <span>Registrato: <strong>{formatItalianDateTime(selectedQrModalAttendee.registrationDate)}</strong></span>
+            </div>
 
             {/* High-contrast QR Code Box for Screen Scanning */}
             <div className="my-5 p-4 bg-white rounded-2xl inline-block border-2 border-[#CAC8AA]/80 shadow-md">

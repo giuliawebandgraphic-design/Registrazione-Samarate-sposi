@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import officialLogoImg from '../assets/images/logo-03.png';
-import { subscribeToCustomLogo } from '../lib/firebase';
+import React, { useState } from 'react';
+import officialLogoImg from '../assets/images/logo-samarate-sposi-verde-oro.png';
 
 interface SamarateLogoProps {
   className?: string;
@@ -15,81 +14,41 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
   size = 'md',
   variant = 'dark',
 }) => {
-  const [currentLogoSrc, setCurrentLogoSrc] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('samarate_sposi_custom_logo');
-      if (saved) return saved;
-    } catch {
-      // safe
-    }
-    return officialLogoImg;
-  });
-
+  const [currentSrc, setCurrentSrc] = useState<string>(officialLogoImg);
   const [imageError, setImageError] = useState(false);
   const isLight = variant === 'light';
 
-  useEffect(() => {
-    // 1. Cloud Firestore real-time logo synchronization
-    const unsubscribeCloud = subscribeToCustomLogo((cloudLogo) => {
-      if (cloudLogo) {
-        setCurrentLogoSrc(cloudLogo);
-        setImageError(false);
-      }
-    });
-
-    // 2. Local window event listener
-    const handleLogoUpdate = () => {
-      try {
-        const saved = localStorage.getItem('samarate_sposi_custom_logo');
-        if (saved) {
-          setCurrentLogoSrc(saved);
-          setImageError(false);
-        } else {
-          setCurrentLogoSrc(officialLogoImg);
-          setImageError(false);
-        }
-      } catch {
-        // safe
-      }
-    };
-
-    window.addEventListener('samarate_logo_updated', handleLogoUpdate);
-    return () => {
-      unsubscribeCloud();
-      window.removeEventListener('samarate_logo_updated', handleLogoUpdate);
-    };
-  }, []);
-
-  const sizeConfig = {
-    sm: {
-      img: 'h-9 sm:h-10 max-w-[140px] sm:max-w-[170px]',
-      wrapper: 'px-2 py-0.5',
-      fallback: 'w-24 h-10',
-    },
-    md: {
-      img: 'h-13 sm:h-15 max-w-[200px] sm:max-w-[240px]',
-      wrapper: 'px-2.5 py-1',
-      fallback: 'w-36 h-14',
-    },
-    lg: {
-      img: 'h-20 sm:h-24 max-w-[280px] sm:max-w-[340px]',
-      wrapper: 'px-4 py-2',
-      fallback: 'w-48 h-20',
-    },
-    xl: {
-      img: 'h-28 sm:h-36 max-w-[360px] sm:max-w-[460px]',
-      wrapper: 'px-6 py-3',
-      fallback: 'w-64 h-28',
-    },
-  }[size];
-
   const handleImgError = () => {
-    if (currentLogoSrc !== officialLogoImg) {
-      setCurrentLogoSrc(officialLogoImg);
+    if (currentSrc !== '/logo-samarate-sposi-verde-oro.png') {
+      // Fallback to direct public path
+      setCurrentSrc('/logo-samarate-sposi-verde-oro.png');
     } else {
       setImageError(true);
     }
   };
+
+  const sizeConfig = {
+    sm: {
+      img: 'h-9 sm:h-10 max-w-[145px] sm:max-w-[170px]',
+      wrapper: 'px-2 py-1',
+      fallback: 'w-28 h-9',
+    },
+    md: {
+      img: 'h-12 sm:h-14 max-w-[190px] sm:max-w-[230px]',
+      wrapper: 'px-2.5 py-1.5',
+      fallback: 'w-36 h-12',
+    },
+    lg: {
+      img: 'h-16 sm:h-20 max-w-[260px] sm:max-w-[320px]',
+      wrapper: 'px-3.5 py-2',
+      fallback: 'w-48 h-18',
+    },
+    xl: {
+      img: 'h-24 sm:h-32 max-w-[340px] sm:max-w-[420px]',
+      wrapper: 'px-5 py-2.5',
+      fallback: 'w-60 h-24',
+    },
+  }[size];
 
   if (imageError) {
     return (
@@ -104,29 +63,29 @@ export const SamarateLogo: React.FC<SamarateLogoProps> = ({
     );
   }
 
-  // If used on a dark background (e.g. VIP badge header banner), frame it in a luxury white card
+  // If used on a dark background (e.g. VIP badge header banner), frame it in an elegant white card
   if (isLight) {
     return (
-      <div className={`inline-flex items-center justify-center bg-white rounded-2xl ${sizeConfig.wrapper} shadow-sm border border-white/80 ${className}`}>
+      <div className={`inline-flex items-center justify-center bg-white/95 rounded-xl ${sizeConfig.wrapper} shadow-2xs border border-white/90 shrink-0 ${className}`}>
         <img
-          src={currentLogoSrc}
-          alt="Samarate Sposi - Salone Ufficiale"
+          src={currentSrc}
+          alt="Samarate Sposi"
           onError={handleImgError}
-          className={`w-auto ${sizeConfig.img} object-contain`}
+          className={`w-auto ${sizeConfig.img} object-contain select-none`}
           referrerPolicy="no-referrer"
         />
       </div>
     );
   }
 
-  // On light or ivory background (header, forms, modals, footer): blend seamlessly with mix-blend-multiply
+  // On light or ivory background (header, forms, modals, footer): transparent display
   return (
-    <div className={`inline-flex items-center justify-center ${className}`}>
+    <div className={`inline-flex items-center justify-center shrink-0 ${className}`}>
       <img
-        src={currentLogoSrc}
-        alt="Samarate Sposi - Salone Ufficiale"
+        src={currentSrc}
+        alt="Samarate Sposi"
         onError={handleImgError}
-        className={`w-auto ${sizeConfig.img} object-contain mix-blend-multiply`}
+        className={`w-auto ${sizeConfig.img} object-contain select-none`}
         referrerPolicy="no-referrer"
       />
     </div>

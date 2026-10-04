@@ -49,6 +49,11 @@ export default function App() {
 
   // Real-time Cloud Synchronization with Firebase Firestore
   useEffect(() => {
+    try {
+      localStorage.removeItem('samarate_sposi_custom_logo');
+    } catch {
+      // safe
+    }
     let unsubscribe: (() => void) | undefined;
 
     async function initCloudSync() {

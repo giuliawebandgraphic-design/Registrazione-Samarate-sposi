@@ -157,34 +157,3 @@ export async function seedInitialAttendeesIfEmpty(fallbackList: Attendee[]): Pro
     console.warn('Could not seed initial data to cloud:', error);
   }
 }
-
-// Shared Logo Settings across devices
-export function subscribeToCustomLogo(onUpdate: (logoBase64: string | null) => void) {
-  const path = 'settings/logo';
-  return onSnapshot(
-    doc(db, 'settings', 'logo'),
-    (snap) => {
-      if (snap.exists()) {
-        onUpdate(snap.data()?.value || null);
-      } else {
-        onUpdate(null);
-      }
-    },
-    (error) => {
-      console.warn('Logo sync warning:', error);
-    }
-  );
-}
-
-export async function saveCustomLogoToCloud(logoBase64: string | null): Promise<void> {
-  const path = 'settings/logo';
-  try {
-    if (logoBase64) {
-      await setDoc(doc(db, 'settings', 'logo'), { key: 'logo', value: logoBase64 }, { merge: true });
-    } else {
-      await deleteDoc(doc(db, 'settings', 'logo'));
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-  }
-}

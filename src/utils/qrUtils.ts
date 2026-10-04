@@ -24,6 +24,38 @@ export function formatItalianDate(dateString: string): string {
   }
 }
 
+export function formatItalianDateTime(dateTimeStr?: string): string {
+  if (!dateTimeStr) return '-';
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(dateTimeStr)) {
+    return dateTimeStr;
+  }
+  try {
+    const d = new Date(dateTimeStr.replace(' ', 'T'));
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  } catch {
+    // fallback
+  }
+  return dateTimeStr;
+}
+
+export function splitDateTime(dateTimeStr?: string): { date: string; time: string } {
+  const formatted = formatItalianDateTime(dateTimeStr);
+  if (!formatted || formatted === '-') return { date: '-', time: '' };
+  const parts = formatted.split(/[,\s]+/);
+  if (parts.length >= 2) {
+    return { date: parts[0], time: parts[1] };
+  }
+  return { date: formatted, time: '' };
+}
+
 export function exportAttendeesToCSV(attendees: Attendee[]) {
   const headers = [
     'ID Biglietto',
